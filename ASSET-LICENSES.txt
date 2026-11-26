@@ -1,0 +1,43 @@
+H3 Hafenroute – 25.11.2026
+The following retained notices document the CC0 asset provenance from the D4 city snapshot. H3 packages only female/male body, top, pants, shoes, hair GLBs and three city surface texture maps. No commercial GTA assets are used.
+
+Sonnenblick Station – external asset notices
+
+Human model data
+Source: https://github.com/kblood/CharacterCreator/tree/master/output
+Original geometry, morph targets, skeleton, weights, eyes, hair and clothes: MakeHuman CC0 system assets. CharacterCreator output GLB and JSON data are CC0-1.0, as stated in its README and LICENSE-NOTES.md.
+Runtime generator code (GPL) was not copied. The local baking scripts are original data transformations only.
+Resident variants bake gender_female / gender_male, age_old and their respective correction morph. Geometry, joint positions, inverse bind matrices and positional animation keys are transformed consistently. No original person identity is claimed.
+
+Photographic PBR textures – Poly Haven CC0-1.0
+https://polyhaven.com/license
+Wood Floor by Dimitrios Savva: https://polyhaven.com/a/wood_floor
+Beige Wall 001 by Dimitrios Savva / Rico Cilliers: https://polyhaven.com/a/beige_wall_001
+Fabric Pattern 07 by Rob Tuytel (normal / roughness maps only): https://polyhaven.com/a/fabric_pattern_07
+Alps Field by Andreas Mischok (tonemapped photograph, exterior windows only): https://polyhaven.com/a/alps_field
+Maps were downloaded from Poly Haven's official CDN and resized/recompressed for this game. No runtime dependency on Poly Haven's API or CDN is needed after packaging.
+
+Rendering library
+Three.js – MIT. Full license is retained separately under dist/vendor/LICENSE-Three.txt and must remain in the standalone game.
+
+H3 Hafenroute V2 audio, 25.11.2026: original instrumental score Harbour Lights, 100 BPM/32 bars, composed procedurally for this game. Fictional dialogue and mission briefs pre-rendered with Microsoft de-CH LeniNeural/JanNeural via edge-tts7.3.1; no commercial music or GTA audio used. Speech content is synthetic. No runtime speech-service request; browser voice fallback if a local clip cannot play. Vehicle geometry is original procedural work.
+
+H3 Hafenroute V3, 25.11.2026: 20 original fictional everyday citizen dialogues, each pre-rendered with both de-CH LeniNeural and JanNeural voices (40 additional local MP3 files). Text/voice/hash audit retained in project provenance records outside the learner site. Original procedural navigation-arrow, vehicle and shop-interior geometry; no new third-party graphical assets.
+
+GTA H3 V12, 25.11.2026: all67 local speech clips regenerated with Microsoft de-DE-TanjaNeural, de-DE-ChristophNeural, de-AT-IngridNeural and de-AT-JonasNeural through edge-tts7.3.1. Catalogue metadata identifies General/Friendly/Positive personalities; no custom emotional-style API or human voice recording is claimed. Fictional clinical and everyday texts retained; original clips preserved outside the shipped site. No runtime speech-service dependency. Original procedural benches, wood surfaces, electric scooters and civilian-traffic integration; civilian cars reuse the existing credited CC0 Tevy models.
+
+H3 Hafenroute V4,25.11.2026 — Tevy vehicle models,CC0-1.0.
+Family Estate Car https://tevy.dev/models/estate-car/v1/lod0.glb
+Family Minivan https://tevy.dev/models/family-minivan/v1/lod1.glb
+High-Roof Delivery Van https://tevy.dev/models/delivery-van/v1/lod0.glb
+Ambulance https://tevy.dev/models/ambulance/v1/lod0.glb
+Original licensing and documentation https://tevy.dev/docs and https://github.com/iruizsalinas/tevy . Each original model asset.copyright states CC0-1.0. Model/version metadata and hashes retained in project project provenance records Offline decoded from Meshopt/KTX2 into local GLB+embeddedPNG (max1024px), fitted/repainted and adapted to the five fictional transport roles. Wheel animation, seat/camera anchors, taxi and transport labels are local runtime adaptations. No new external runtime request or decoder is required. An adapted wheelchair model does not establish real-world vehicle certification or securement competence.
+
+H3 Hafenroute V5, 25.11.2026: original procedural instrumental Quaigroove, 106 BPM / 32 bars, rendered locally as 32 kHz stereo PCM WAV. Original synthetic petrol/diesel engine, starter, tyre and wind loops generated for this game; no third-party music, samples, recordings or vehicle audio used. Music is replaced by vehicle effects while driving. Generator and measured asset metadata are retained with the project. Earlier Harbour Lights score is replaced in this version.
+
+H3 Hafenroute V6, 25.11.2026 — city surface/tree snapshot from the local D4 project.
+Asphalt and paving colour/normal/roughness maps: Poly Haven CC0-1.0, Aerial Asphalt 01 https://polyhaven.com/a/aerial_asphalt_01 and Pavement 04 https://polyhaven.com/a/pavement_04 ; official source metadata and conversion-script hashes retained in project provenance records Local h3-v6-* files are adapted copies.
+Branched trees, bark generation and canopy geometry are original D4 project work; bark is procedurally generated, branch foliage and shop interiors are adapted from AI-generated D4 image atlases. Facade and brick image data are adapted from generated D4 image atlases retained in project provenance records. Source image hashes and visual motif matching are retained in project provenance records; no blanket CC0 status is asserted for that original image work.
+Camera-relative walking direction is adapted from swift502/Sketchbook, MIT, Copyright(c)2020 swift502; pinned original commit62f4b7986fd1ce1e4f91daba89ef032c20a6ce55, Character.ts548–580 and FunctionLibrary.ts126–133. No Sketchbook game art or full runtime is included. Full original permission notice is retained in vendor/LICENSE-Sketchbook.txt and embedded in the generated game.
+
+GTA H3 V13 audio, 26.11.2026: eight Elena Widmer/Selma Yilmaz dialogue clips are new directed synthetic performances generated for this project with HeyGen. The other59 local speech clips retain the V12 recordings. These are synthetic character voices, not recordings of the fictional patients. Playback uses local files; no runtime speech-service request. This provenance notice grants no additional open licence to project content.

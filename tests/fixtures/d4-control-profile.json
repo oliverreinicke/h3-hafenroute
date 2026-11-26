@@ -1,0 +1,31 @@
+{
+  "source_sha256": "a7423f446ea951c5efcf6d32246ba0964001d005c6920fff17ccfde9d19f60b1",
+  "profile": {
+    "walk_mps": 2.23,
+    "sprint_mps": 5.55,
+    "backward_mps": 1.45,
+    "turn_rps": 2.32,
+    "sprint_turn_rps": 2.65,
+    "speed_response_active": 7.5,
+    "speed_response_release": 11,
+    "tap_seconds": 0.085,
+    "camera_yaw_response_walk": 11,
+    "camera_yaw_response_car_outside": 14,
+    "camera_arm_response_out": 8,
+    "camera_distance_walk": 4.35,
+    "camera_distance_car": 5.95,
+    "camera_car_speed_gain": 0.065,
+    "camera_pitch_outside": 0.16,
+    "camera_target_height_walk": 1.4,
+    "camera_target_height_car": 1.04,
+    "fov_outside": 54
+  },
+  "excerpts": {
+    "stepPerson": {
+      "text": "function stepPerson(dt){\n    const {turn,gas,brake}=controls(dt),forward=Number(gas)-Number(brake);\n    characterHeading=wrap(characterHeading+turn*(keys.sprint?2.65:2.32)*dt);\n    const targetSpeed=forward*(forward<0?1.45:keys.sprint?5.55:2.23);\n    footSpeed+=(targetSpeed-footSpeed)*smooth(dt,forward?7.5:11);\n    if(!forward&&Math.abs(footSpeed)<.015)footSpeed=0;\n    const p=pieces.char.position,nx=p.x+Math.sin(characterHeading)*footSpeed*dt,nz=p.z-Math.cos(characterHeading)*footSpeed*dt;\n    const walkable=(x,z)=>clearAt(x,z,.32)&&clearOfCars(x,z,.29)\n      &&city.pedestrians.every(n=>Math.hypot(n.x-x,n.z-z)>.45);\n    const fromX=p.x,fromZ=p.z;\n    if(walkable(nx,p.z))p.x=nx;\n    if(walkable(p.x,nz))p.z=nz;\n    pieces.char.rotation.y=-characterHeading;\n    p.y+=(city.groundHeight(p.x,p.z)-p.y)*smooth(dt,22);\n    const travelSpeed=dt>0?Math.sign(footSpeed)*Math.hypot(p.x-fromX,p.z-fromZ)/dt:0;\n    person.actor.update(dt,travelSpeed);\n    if(person.actor.ready)return;\n    const amp=clamp(Math.abs(travelSpeed)/4,0,1);\n    gait+=dt*(Math.abs(footSpeed)*2.05+.7);\n    person.hips.position.y=.91+Math.abs(Math.sin(gait))*amp*.065;\n    person.upper.rotation.z=Math.sin(gait)*amp*.045;\n    person.upper.rotation.x=-amp*.11+Math.sin(clock*2)*.008;\n    person.head.rotation.z=Math.sin(clock*1.75)*.018;\n    for(const limb of person.limbs){\n      const phase=Math.sin(gait)*limb.side*amp*Math.sign(footSpeed);\n      limb.hip.rotation.x=phase*.82;limb.knee.rotation.x=-Math.max(0,-phase)*.79;\n      limb.shoulder.rotation.x=-phase*.78;limb.elbow.rotation.x=.12+amp*.39;\n    }\n  }"
+    },
+    "cameraStep": {
+      "text": "function cameraStep(dt){\n    const driving=mode===\"car\",base=(driving?pieces.vehicle:pieces.char).position,heading=driving?vehicleHeading:characterHeading;\n    idleOrbit=Math.max(0,idleOrbit-dt);\n    if(!drag && !idleOrbit && (Math.abs(footSpeed)>1&& !driving||Math.abs(velocity)>2&&driving))orbit*=1-smooth(dt,1.45);\n    const targetYaw=heading+orbit;\n    cameraYaw=dt>0&&!drag?wrap(cameraYaw+wrap(targetYaw-cameraYaw)*smooth(dt,driving?14:11)):targetYaw;\n    const yaw=cameraYaw,dist=driving?5.95+Math.abs(velocity)*.065:4.35;\n    const lookY=base.y+(driving?1.04:1.40);\n    let arm=dist;\n    // Pull the camera in before a wall can obscure the player.\n    for(let s=.42;s<dist;s+=.28){\n      const x=base.x-Math.sin(yaw)*s,z=base.z+Math.cos(yaw)*s;\n      if(!clearAt(x,z,.15)){arm=Math.max(.53,s-.29);break;}\n    }\n    cameraArm=dt>0&&cameraArm>0&&arm>cameraArm?cameraArm+(arm-cameraArm)*smooth(dt,8):arm;\n    arm=cameraArm;\n    camera.position.set(base.x-Math.sin(yaw)*arm*Math.cos(pitch),lookY+Math.sin(pitch)*arm+(driving?.48:.16),base.z+Math.cos(yaw)*arm*Math.cos(pitch));\n    camera.lookAt(base.x+Math.sin(yaw)*.88,lookY+.08,base.z-Math.cos(yaw)*.88);\n  }"
+    }
+  }
+}
