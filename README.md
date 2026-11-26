@@ -1,5 +1,9 @@
 # GTA – Gesundheit. Transport. Abenteuer.
 
+**Direkt im Browser spielen:** [GTA – Gesundheit. Transport. Abenteuer. starten](https://oliverreinicke.github.io/h3-hafenroute/)
+
+Kostenlos und ohne Anmeldung. Die Spielseite wird über GitHub Pages bereitgestellt.
+
 V13 ist ein 3D-Lernspiel mit fünf fiktiven Transportmissionen für FaGe H3. Bedarf und Mitgaben klären, ein passendes Transportangebot prüfen, die Person abholen und persönlich übergeben. Alle Personen, Orte, Angebote und Kennzeichen sind fiktiv. Fahrten und Teamhandlungen sind Spielabstraktionen.
 
 ## Starten
