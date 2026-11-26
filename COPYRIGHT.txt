@@ -1,5 +1,0 @@
-GTA – Gesundheit. Transport. Abenteuer. – Rechtehinweis
-
-Für den eigenen Spielcode, eigene Texte, Bildarbeit und Musik dieses Projekts wird durch diese Bereitstellung keine zusätzliche Nutzungslizenz oder offene Lizenz erteilt. Sämtliche Rechte bleiben bei den jeweiligen Rechteinhabenden.
-
-Für mitgelieferte Drittbestandteile gelten deren gesonderte Lizenzen und Herkunftsnachweise. Insbesondere bleiben die MIT-Lizenzhinweise von Three.js und der adaptierten Sketchbook-Komponente sowie die dokumentierten CC0-Nachweise erhalten. Die MIT-Lizenzen einzelner Bestandteile gelten nicht automatisch für das gesamte Projekt. Details: ASSET-LICENSES.txt, dist/vendor/LICENSE-Three.txt und vendor/LICENSE-Sketchbook.txt.

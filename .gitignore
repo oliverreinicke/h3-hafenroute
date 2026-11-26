@@ -1,9 +1,0 @@
-# Generated optional standalone release
-/Hafenroute_H3.html
-# Local development files
-.DS_Store
-__pycache__/
-*.py[cod]
-.openai/
-.env
-.env.*
