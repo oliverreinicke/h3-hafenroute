@@ -139,12 +139,12 @@ Family Estate Car https://tevy.dev/models/estate-car/v1/lod0.glb
 Family Minivan https://tevy.dev/models/family-minivan/v1/lod1.glb
 High-Roof Delivery Van https://tevy.dev/models/delivery-van/v1/lod0.glb
 Ambulance https://tevy.dev/models/ambulance/v1/lod0.glb
-Original licensing and documentation https://tevy.dev/docs and https://github.com/iruizsalinas/tevy . Each original model asset.copyright states CC0-1.0. Model/version metadata and hashes retained in project project provenance records Offline decoded from Meshopt/KTX2 into local GLB+embeddedPNG (max1024px), fitted/repainted and adapted to the five fictional transport roles. Wheel animation, seat/camera anchors, taxi and transport labels are local runtime adaptations. No new external runtime request or decoder is required. An adapted wheelchair model does not establish real-world vehicle certification or securement competence.
+Original licensing and documentation https://tevy.dev/docs and https://github.com/iruizsalinas/tevy . Each original model asset.copyright states CC0-1.0. Model/version metadata and hashes retained in project provenance records. Offline decoded from Meshopt/KTX2 into local GLB+embeddedPNG (max1024px), fitted/repainted and adapted to the five fictional transport roles. Wheel animation, seat/camera anchors, taxi and transport labels are local runtime adaptations. No new external runtime request or decoder is required. An adapted wheelchair model does not establish real-world vehicle certification or securement competence.
 
 H3 Hafenroute V5, 25.11.2026: original procedural instrumental Quaigroove, 106 BPM / 32 bars, rendered locally as 32 kHz stereo PCM WAV. Original synthetic petrol/diesel engine, starter, tyre and wind loops generated for this game; no third-party music, samples, recordings or vehicle audio used. Music is replaced by vehicle effects while driving. Generator and measured asset metadata are retained with the project. Earlier Harbour Lights score is replaced in this version.
 
 H3 Hafenroute V6, 25.11.2026 — city surface/tree snapshot from the local D4 project.
-Asphalt and paving colour/normal/roughness maps: Poly Haven CC0-1.0, Aerial Asphalt 01 https://polyhaven.com/a/aerial_asphalt_01 and Pavement 04 https://polyhaven.com/a/pavement_04 ; official source metadata and conversion-script hashes retained in project provenance records Local h3-v6-* files are adapted copies.
+Asphalt and paving colour/normal/roughness maps: Poly Haven CC0-1.0, Aerial Asphalt 01 https://polyhaven.com/a/aerial_asphalt_01 and Pavement 04 https://polyhaven.com/a/pavement_04 ; official source metadata and conversion-script hashes retained in project provenance records. Local h3-v6-* files are adapted copies.
 Branched trees, bark generation and canopy geometry are original D4 project work; bark is procedurally generated, branch foliage and shop interiors are adapted from AI-generated D4 image atlases. Facade and brick image data are adapted from generated D4 image atlases retained in project provenance records. Source image hashes and visual motif matching are retained in project provenance records; no blanket CC0 status is asserted for that original image work.
 Camera-relative walking direction is adapted from swift502/Sketchbook, MIT, Copyright(c)2020 swift502; pinned original commit62f4b7986fd1ce1e4f91daba89ef032c20a6ce55, Character.ts548–580 and FunctionLibrary.ts126–133. No Sketchbook game art or full runtime is included. Full original permission notice is retained in vendor/LICENSE-Sketchbook.txt and embedded in the generated game.
 
@@ -7447,7 +7447,7 @@ window.drawCover = function drawCover(canvas) {
 window.GCBPub=(()=>{
   function create(T,parent,{x=-95,z=-15,w=6.2,d=8}={}){
     const PI=Math.PI,hx=w/2,hz=d/2,floorY=-.15,root=new T.Group();root.name='gcb_pub';root.position.set(x,0,z);parent.add(root);
-    const blocks=[],actors=[],buckets=new Map(),textures=[],lights=[],orders=new Map();
+    const blocks=[],actors=[],actorViews=[],buckets=new Map(),textures=[],orders=new Map();
     let seed=91432,disposed=false;
     const random=()=>((seed=(Math.imul(1664525,seed)+1013904223)>>>0)/4294967296);
     function canvasTexture(width,height,paint){
@@ -7491,6 +7491,11 @@ window.GCBPub=(()=>{
       glow:new T.MeshStandardMaterial({color:0xffd795,emissive:0xffbc62,emissiveIntensity:1.45,roughness:.5,vertexColors:true}),
       menu:new T.MeshBasicMaterial({color:0xffffff,vertexColors:true})
     };
+    // Warm room lighting is local to these surfaces. Adding/removing scene lights
+    // used to rebuild city-wide shader variants whenever the player approached.
+    for(const key of ['timber','floor','green','brick','plaster','leather','brass','ceramic','food']){
+      mats[key].emissive.set(0xffc28a);mats[key].emissiveIntensity=.065;
+    }
     const cube=new T.BoxGeometry(1,1,1),cylinder=new T.CylinderGeometry(1,1,1,10),sphere=new T.SphereGeometry(1,12,8);
     const transform=new T.Matrix4(),rotation=new T.Quaternion(),euler=new T.Euler(),position=new T.Vector3(),scale=new T.Vector3(),color=new T.Color();
     function add(bucket,key,g,px=0,py=0,pz=0,sx=1,sy=1,sz=1,col=0xffffff,rx=0,ry=0,rz=0){
@@ -7637,8 +7642,13 @@ window.GCBPub=(()=>{
       rod('dark',new T.Vector3(.1,3.31,zz),new T.Vector3(.1,2.85,zz),.012);
       const cone=new T.ConeGeometry(.31,.25,16,1,true);add(buckets,'brass',cone,.1,2.80,zz);
       ball('glow',.1,2.68,zz,.11,.09,.11);
-      const light=new T.PointLight(0xffc28a,15,6.9,2);light.name='gcb_warm_light';light.position.set(.1,2.54,zz);light.castShadow=false;root.add(light);lights.push(light);
     }
+    const pool=canvasTexture(128,128,(c,tw,th)=>{
+      const g=c.createRadialGradient(tw/2,th/2,0,tw/2,th/2,tw/2);
+      g.addColorStop(0,'rgba(255,201,131,.21)');g.addColorStop(.45,'rgba(255,192,116,.10)');g.addColorStop(1,'rgba(255,192,116,0)');c.fillStyle=g;c.fillRect(0,0,tw,th);
+    });
+    const pools=[];for(const zz of[-1.82,1.82]){const g=new T.PlaneGeometry(3.5,3.3);g.rotateX(-PI/2);g.translate(.1,floorY+.006,zz);const cols=new Float32Array(g.attributes.position.count*3).fill(1);g.setAttribute('color',new T.BufferAttribute(cols,3));pools.push(g);}
+    const lightPool=new T.Mesh(merge(pools),new T.MeshBasicMaterial({map:pool,transparent:true,depthWrite:false,toneMapped:false}));lightPool.name='gcb_baked_light_pools';root.add(lightPool);
     for(const side of[-1,1]){
       const zz=side*1.16;
       box('dark',hx+.22,1.91,zz,.14,.32,.12);rod('dark',new T.Vector3(hx+.22,2.05,zz),new T.Vector3(hx+.49,2.05,zz),.025);
@@ -7684,8 +7694,9 @@ window.GCBPub=(()=>{
     function actor(px,pz,heading,spec,pose='standing'){
       const anchor=new T.Group();anchor.name='gcb_'+(pose==='seated'?'guest':'waiter');anchor.position.set(px,floorY+(pose==='seated'?.30:0),pz);anchor.rotation.y=heading;root.add(anchor);
       if(pose==='standing'){const apron=new T.Mesh(new T.BoxGeometry(.42,.55,.018),mats.dark);apron.name='gcb_waiter_apron';apron.position.set(0,.70,.17);anchor.add(apron);}
-      const person=window.People3D?.attach(anchor,spec);
-      if(person){person.setPose(pose);actors.push(person);}return person;
+      const configure=()=>anchor.traverse(o=>{if(o.isMesh){o.castShadow=false;}});
+      const person=window.People3D?.attach(anchor,spec,configure);
+      if(person){person.setPose(pose);actors.push(person);actorViews.push({anchor,person,elapsed:0});person.promise?.then(configure,()=>{});}return person;
     }
     const waiter=actor(-2.53,1.65,PI/2,{sex:'male',height:1.76,shirt:0xe9e5d9,pants:0x29352c,hair:0x493d32,skin:0xffebdc,phase:.23});
     const guest=actor(1.52,hz-.63,PI,{sex:'female',height:1.64,shirt:0x79764d,pants:0x333c3c,hair:0x614739,skin:0xffedd6,phase:.64},'seated');
@@ -7697,9 +7708,15 @@ window.GCBPub=(()=>{
       ready,
       update(dt,time,viewerPosition){
         if(disposed)return;
-        const near=!viewerPosition||Math.hypot(viewerPosition.x-x,viewerPosition.z-z)<19;
-        for(const light of lights)light.visible=near;
-        for(const a of actors)a.update(dt,0);
+        const distance2=viewerPosition?(viewerPosition.x-x)**2+(viewerPosition.z-z)**2:0;
+        for(const view of actorViews){
+          // People behind the enclosed room cannot contribute at city distance.
+          const visible=distance2<26*26;view.anchor.visible=visible;
+          if(!visible){view.elapsed=0;continue;}
+          view.elapsed+=Math.min(.1,Math.max(0,dt||0));
+          const interval=distance2<12*12?0:1/15;
+          if(interval===0||view.elapsed>=interval){view.person.update(view.elapsed,0);view.elapsed=0;}
+        }
       },
       setOrder(item){
         const id=item===null?null:typeof item==='string'?item:item?.id;
@@ -7709,7 +7726,7 @@ window.GCBPub=(()=>{
         for(const [name,group]of orders)group.visible=name===id;
         lastOrder=id;return true;
       },
-      dispose(){if(disposed)return;disposed=true;for(const a of actors)a.dispose?.();for(const light of lights)light.visible=false;}
+      dispose(){if(disposed)return;disposed=true;for(const a of actors)a.dispose?.();}
     };
   }
   return {create};
