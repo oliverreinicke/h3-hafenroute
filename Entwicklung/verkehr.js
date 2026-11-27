@@ -28,7 +28,7 @@ window.H3Traffic = (() => {
  }
  // Oriented rectangle SAT. The same footprint is exported for player collision.
  function overlap(a,b,margin=0){
-  const ah=a.heading||0,bh=b.heading||0,ac=Math.cos(ah),as=Math.sin(ah),bc=Math.cos(bh),bs=Math.sin(bh),dx=b.x-a.x,dz=b.z-a.z,aw=a.halfWidth+margin,al=a.halfLength+margin,bw=b.halfWidth,bl=b.halfLength;
+  const ah=a.heading||0,bh=b.heading||0,ac=Math.cos(ah),as=Math.sin(ah),bc=Math.cos(bh),bs=Math.sin(bh),ao=a.centerZ||0,bo=b.centerZ||0,dx=b.x-bs*bo-a.x+as*ao,dz=b.z+bc*bo-a.z-ac*ao,aw=a.halfWidth+margin,al=a.halfLength+margin,bw=b.halfWidth,bl=b.halfLength;
   const rr=ac*bc+as*bs,rf=ac*bs-as*bc;
   if(Math.abs(dx*ac+dz*as)>aw+Math.abs(rr)*bw+Math.abs(rf)*bl)return false;
   if(Math.abs(dx*as-dz*ac)>al+Math.abs(rf)*bw+Math.abs(rr)*bl)return false;
@@ -36,11 +36,11 @@ window.H3Traffic = (() => {
   return Math.abs(dx*bs-dz*bc)<=bl+Math.abs(rf)*aw+Math.abs(rr)*al;
  }
  function roadClear(p){
-  const c=Math.cos(p.heading),s=Math.sin(p.heading);
-  for(const side of [-1,0,1])for(const end of [-1,0,1]){const x=p.x+c*side*p.halfWidth+s*end*p.halfLength,z=p.z+s*side*p.halfWidth-c*end*p.halfLength;let d=Infinity;for(const q of ROAD_X)d=Math.min(d,Math.abs(x-q));for(const q of ROAD_Z)d=Math.min(d,Math.abs(z-q));if(d>5.92)return false;}
+  const c=Math.cos(p.heading),s=Math.sin(p.heading),o=p.centerZ||0;
+  for(const side of [-1,0,1])for(const end of [-1,0,1]){const x=p.x-s*o+c*side*p.halfWidth+s*end*p.halfLength,z=p.z+c*o+s*side*p.halfWidth-c*end*p.halfLength;let d=Infinity;for(const q of ROAD_X)d=Math.min(d,Math.abs(x-q));for(const q of ROAD_Z)d=Math.min(d,Math.abs(z-q));if(d>5.92)return false;}
   return true;
  }
- function create(T,scene,{makeVehicle,population=10}={}){
+ function create(T,scene,{makeVehicle,population=10,sports=false}={}){
   if(typeof makeVehicle!=='function')throw Error('Für den Verkehr fehlt die lokale Fahrzeugfactory.');
   const group=new T.Group();group.name='H3_civilian_traffic';scene.add(group);
   population=clamp(Math.round(population)||10,10,16);
@@ -50,7 +50,9 @@ window.H3Traffic = (() => {
   let elapsed=0,disposed=false,steps=0,focusX=0,focusZ=0,drawn=0,heldId=null,walkFocus=null;
   const colours=[0xe7e9e5,0x536976,0x9a4740,0xaca9a1,0x38434b,0x718774,0xddd4be,0x607b8f,0x88564b,0xa8adb3,0x3b5162,0xd0c5b1,0x655651,0x71808d,0x585e59,0xb3b5b1];
   try{
-   for(let index=0;index<2;index++){
+   // Opt in after the sport factory is ready. Existing callers can still use a
+   // small two-model factory, and every model is built only once for instancing.
+   for(const index of sports?[0,1,5]:[0,1]){
     const model=makeVehicle([0,0,0,0xffffff],index,{id:'traffic-prototype-'+index,type:'civil',civil:true,noPlates:true});
     if(!model?.root||!model.chassis){model?.root?.removeFromParent();throw Error('Das lokale Verkehrsmodell ist unvollständig.');}
     model.root.position.set(0,-.085,0);model.root.rotation.set(0,0,0);model.root.updateWorldMatrix(true,true);rootInverse.copy(model.root.matrixWorld).invert();
@@ -71,12 +73,12 @@ window.H3Traffic = (() => {
    }
    const seeds=population===10?[[0,18],[0,230],[0,440],[1,80],[1,290],[1,510],[2,18],[2,110],[3,65],[3,160]]:[[0,18],[0,150],[0,285],[0,420],[0,552],[1,70],[1,205],[1,340],[1,475],[1,610],[2,18],[2,88],[2,158],[3,45],[3,115],[3,185]].slice(0,population);
    for(let id=0;id<seeds.length;id++){
-    const [route,initial]=seeds[id],proto=prototypes[id%3===1?1:0],car={id:'traffic-'+(id+1),number:id,route:ROUTES[route],routeIndex:route,initial,s:initial,previousS:initial,speed:0,previousOffset:0,offset:0,laneYaw:0,previousLaneYaw:0,steer:0,previousSteer:0,spin:0,previousSpin:0,halfWidth:proto.halfWidth,halfLength:proto.halfLength,proto,colour:new T.Color(colours[id]),x:0,z:0,heading:0,curvature:0,waiting:0,requestNode:-1,requestSince:Infinity,ownedNode:-1,ownedCrossing:0,bypass:null,viewDistance:0};
+    const [route,initial]=seeds[id],proto=sports&&[1,7,13].includes(id)?prototypes[2]:prototypes[id%3===1?1:0],car={id:'traffic-'+(id+1),number:id,route:ROUTES[route],routeIndex:route,initial,s:initial,previousS:initial,speed:0,previousOffset:0,offset:0,laneYaw:0,previousLaneYaw:0,steer:0,previousSteer:0,spin:0,previousSpin:0,halfWidth:proto.halfWidth,halfLength:proto.halfLength,proto,colour:new T.Color(colours[id]),x:0,z:0,heading:0,curvature:0,waiting:0,requestNode:-1,requestSince:Infinity,ownedNode:-1,ownedCrossing:0,bypass:null,viewDistance:0};
     if(window.H3Vehicles?.makePlates&&proto.model.root.userData.plateSlots){car.plates=window.H3Vehicles.makePlates(T,{id:car.id},proto.model.root.userData.plateSlots,proto.model.spec||{sx:proto.scale.x,sy:proto.scale.y,sz:proto.scale.z});car.plates.matrixAutoUpdate=false;group.add(car.plates);car.plates.traverse(mesh=>{if(!mesh.isMesh)return;geometries.add(mesh.geometry);materials.add(mesh.material);if(mesh.material.map?.isCanvasTexture)plateTextures.add(mesh.material.map);});}
-    car.active=true;car.obstacle={id:car.id,x:0,z:0,heading:0,halfWidth:car.halfWidth,halfLength:car.halfLength};car.descriptor={id:car.id,type:'civil',name:'Stadtwagen '+(id+1),kind:'car',civil:true,traffic:true,x:0,z:0,heading:0,speed:0,colour:colours[id]};cars.push(car);proto.cars.push(car);obstacles.push(car.obstacle);vehicles.push(car.descriptor);
+    car.active=true;car.obstacle={id:car.id,x:0,z:0,heading:0,halfWidth:car.halfWidth,halfLength:car.halfLength};car.descriptor={id:car.id,type:'civil',modelIndex:proto.index,name:(proto.index===5?'Sportwagen ':'Stadtwagen ')+(id+1),kind:'car',civil:true,traffic:true,x:0,z:0,heading:0,speed:0,colour:colours[id],halfWidth:car.halfWidth,halfLength:car.halfLength,centerZ:proto.centerZ};cars.push(car);proto.cars.push(car);obstacles.push(car.obstacle);vehicles.push(car.descriptor);
    }
   }catch(error){dispose();throw error;}
-  function place(car,s,offset,out,yaw=0){pose(car.route,s,out);const c=Math.cos(out.heading),sn=Math.sin(out.heading);out.x+=c*offset;out.z+=sn*offset;out.heading=wrap(out.heading+yaw);out.halfWidth=car.halfWidth;out.halfLength=car.halfLength;return out;}
+  function place(car,s,offset,out,yaw=0){pose(car.route,s,out);const c=Math.cos(out.heading),sn=Math.sin(out.heading);out.x+=c*offset;out.z+=sn*offset;out.heading=wrap(out.heading+yaw);out.halfWidth=car.halfWidth;out.halfLength=car.halfLength;out.centerZ=car.proto.centerZ;return out;}
   function sync(car){place(car,car.s,car.offset,car,car.laneYaw);const o=car.obstacle;o.x=car.x-Math.sin(car.heading)*car.proto.centerZ;o.z=car.z+Math.cos(car.heading)*car.proto.centerZ;o.heading=car.heading;Object.assign(car.descriptor,{x:car.x,z:car.z,heading:car.heading,speed:car.speed});}
   function nextCrossing(car){let nearest=null,d=Infinity;for(const cross of car.route.crossings){const ahead=mod(cross.s-car.s,car.route.length);if(ahead<d){nearest=cross;d=ahead;}}return {cross:nearest,distance:d};}
   function reset(){
@@ -156,7 +158,7 @@ window.H3Traffic = (() => {
     }
     batch.count=count;batch.instanceMatrix.needsUpdate=true;if(batch.instanceColor)batch.instanceColor.needsUpdate=true;if(count)drawn++;
    }
-   // Ten small registration pairs retain individual numbers; full car models
+   // Small registration pairs retain individual numbers; full car models
    // remain instanced. This is visual-only and never changes an obstacle pose.
    for(const car of cars)if(car.plates){car.plates.visible=car.active;if(!car.active)continue;const at=car.previousS+(car.s-car.previousS)*alpha,offset=car.previousOffset+(car.offset-car.previousOffset)*alpha,yaw=car.previousLaneYaw+(car.laneYaw-car.previousLaneYaw)*alpha;place(car,at,offset,sample,yaw);position.set(sample.x,car.proto.height,sample.z);rotation.setFromAxisAngle(axis,-sample.heading);car.plates.matrix.compose(position,rotation,car.proto.scale);car.plates.matrixWorldNeedsUpdate=true;}
   }
@@ -165,12 +167,16 @@ window.H3Traffic = (() => {
   function transfer(id,origin){
    const car=cars.find(c=>c.active&&c.id===id);if(!car||Math.abs(car.speed)>=.02||!origin||Math.hypot(car.x-origin.x,car.z-origin.z)>4.5)return null;
    const config=[car.x,car.z,car.heading,car.descriptor.colour],model=makeVehicle(config,car.proto.index,{id:car.id,name:car.descriptor.name,type:'civil',civil:true});if(!model?.root)return null;
-   Object.assign(model,{civil:true,kind:'car',fromTraffic:true,home:config.slice(),baseY:car.proto.height});car.active=false;car.speed=0;for(const node of nodes)if(node.owner===car.number)node.owner=null;car.ownedNode=-1;car.requestNode=-1;obstacles.splice(obstacles.indexOf(car.obstacle),1);vehicles.splice(vehicles.indexOf(car.descriptor),1);if(heldId===id)heldId=null;render(1);return model;
+   Object.assign(model,{id:car.id,type:'civil',index:car.proto.index,civil:true,kind:'car',fromTraffic:true,home:config.slice(),baseY:car.proto.height});
+   // Start the player controller at rest without changing the registration,
+   // paint, exact hull or wheel phase seen immediately before the hand-off.
+   for(const wheel of model.wheels||[]){if(wheel.front)wheel.hub.rotation.y=0;wheel.axle.rotation.x=-car.spin;}
+   car.active=false;car.speed=0;car.steer=car.previousSteer=0;for(const node of nodes)if(node.owner===car.number)node.owner=null;car.ownedNode=-1;car.requestNode=-1;car.requestSince=Infinity;car.bypass=null;obstacles.splice(obstacles.indexOf(car.obstacle),1);vehicles.splice(vehicles.indexOf(car.descriptor),1);if(heldId===id)heldId=null;render(1);return model;
   }
   function dispose(){
    if(disposed)return;disposed=true;group.removeFromParent();for(const p of prototypes)p.model.root.removeFromParent();for(const p of parts)p.batch.dispose?.();for(const g of geometries)g.dispose?.();for(const m of materials)m.dispose?.();for(const texture of plateTextures)texture.dispose();group.clear();geometries.clear();materials.clear();plateTextures.clear();parts.length=prototypes.length=obstacles.length=vehicles.length=cars.length=0;
   }
-  function getStatus(){return {cars:vehicles.length,population,routes:ROUTES.length,prototypes:prototypes.length,batches:parts.length,visibleBatches:drawn,plateMeshes:cars.filter(c=>c.active&&c.plates).length*2,steps,time:elapsed,moving:cars.filter(c=>c.active&&c.speed>.1).length,waiting:cars.filter(c=>c.active&&c.waiting>2).length,reservations:nodes.filter(n=>n.owner!==null).length,disposed};}
+  function getStatus(){return {cars:vehicles.length,population,sports:cars.filter(c=>c.active&&c.proto.index===5).length,routes:ROUTES.length,prototypes:prototypes.length,batches:parts.length,visibleBatches:drawn,plateMeshes:cars.filter(c=>c.active&&c.plates).length*2,steps,time:elapsed,moving:cars.filter(c=>c.active&&c.speed>.1).length,waiting:cars.filter(c=>c.active&&c.waiting>2).length,reservations:nodes.filter(n=>n.owner!==null).length,disposed};}
   reset();return {root:group,update,render,reset,dispose,hold,releaseHold,transfer,getVehicles:()=>vehicles,getObstacles:()=>obstacles,getStatus};
  }
  return {create};

@@ -47,9 +47,11 @@ window.H3Mobility=(()=>{
   Object.assign(root.userData,{collisionHalfWidth:.30,collisionHalfLength:.59,collisionCenterZ:0,cameraRoofHeight:1.95,vehicleDetail:'original-electric-scooter',passengerSeat:null});
   return {root,chassis,wheels,brakeLight,heading,id:identity.id,type:'scooter',kind:'scooter',civil:true,home:position,baseY:-.09,wheelRadius:.109,index:0,spec:{name:identity.name,sx:.34,sy:1,sz:.25,top:20/3.6}};
  }
- function create(T,scene,makeVehicle){
+ function create(T,scene,makeVehicle,{sports=false}={}){
   const list=[];
-  const cars=[['city-car-1','Quai-Kombi',[-83.5,65,0,0x335d78],0],['city-car-2','Silberner Stadtwagen',[-20,-61,Math.PI,0xa8afb4],0],['city-car-3','Familienvan',[37,4,0,0x8e3a35],1],['city-car-4','Blauer Stadtwagen',[84,-57,Math.PI,0x527b93],0]];
+  // Sport models replace two existing parking places; population and all five
+  // clinical transport offers stay unchanged.
+  const cars=[['city-car-1',sports?'Sportwagen am Quai':'Quai-Kombi',sports?[-83.5,24,0,0xb9362e]:[-83.5,65,0,0x335d78],sports?5:0],['city-car-2','Silberner Stadtwagen',[-20,-61,Math.PI,0xa8afb4],0],['city-car-3','Familienvan',[37,4,0,0x8e3a35],1],['city-car-4',sports?'Blauer Sportwagen':'Blauer Stadtwagen',[84,-57,Math.PI,0x527b93],sports?5:0]];
   for(const [id,name,position,index]of cars){const q=makeVehicle(position,index,{id,name,type:'civil',civil:true});Object.assign(q,{civil:true,kind:'car',home:position,baseY:-.085});list.push(q);}
   const scooters=[
    ['scooter-quai','Quai 1',[-88,6,0,0x72b6a0]],['scooter-quai-2','Quai 2',[-88,2,0,0x72b6a0]],['scooter-quai-3','Quai 3',[-88,10,0,0x72b6a0]],

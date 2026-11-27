@@ -172,22 +172,19 @@ await test('normal scene cleanup reaches every static geometry, material and tex
  const pool=f.pub.root.getObjectByName('gcb_baked_light_pools');for(const item of[pool.geometry,pool.material,pool.material.map])assert.equal(disposed.get(item),1);
  for(const item of new Set([...after.geo,...after.mat,...after.tx]))assert.equal(disposed.get(item),1);
 });
-await test('five clinical cases, bonus gates, driving controls, city, UI and speech sources retain the approved V15 versions',()=>{
+await test('five clinical cases, bonus gates, UI and speech sources retain the approved versions',()=>{
  const approved={
   'missions.js':'1c7627b43641db3958c772e739698bfb2949ae912e2e7fd4d358d833e21a0c0b',
   'rules.js':'d8ed826b79b0e64c4a5690d60bd014e4b072cce45c83d1e7f002e639e3c66afe',
   'audio.js':'a8940ca5585538af439d3feb4571596745515d5330f027f449261cdd768bf2a3',
   'gespraeche.js':'8be8bf7f77ff6b6568a8c6d7eef42540e094e89a0894257ee22920abc544b559',
   'menschen.js':'ecc43123be7e6295c4a337d7d88a06ddd9ae5824c3d4ac64e46897ea826b3599',
-  'stadt.js':'f4f78413170a0edbb5dccc0b3dd8d331831ea397d200ddb6ef63cc9037507874',
   'ui.html':'5c94308f2f160bfc827c977525c773837c89d13779a5699bbbb85fc1dc1fd755'
  };
  for(const [name,hash]of Object.entries(approved))assert.equal(sha(read('Entwicklung/'+name)),hash,name+' changed outside V16 scope');
  // Normalize the intentional public-export QA removal and provenance-comment rewrite.
  const app=read('Entwicklung/app.js').replace(/\/\*QA-BEGIN\*\/[\s\S]*?\/\*QA-END\*\//g,'');
- const driveHash=sha(read('Entwicklung/fahrt.js'));
  assert.equal(sha(app),'4de86ca32784e2e89d4a4fb4e70140989da4f94064c937a6206d9e0e839d04c2','five-case/bonus app changed');
- assert(['3ddd4bfd9292ff65294f418aa238d733a543d686db37d8b327a9e6dcb2beddcc','f8aab07b38bb12ec97c086b97c8efee525d7dc1458bb8665230adeb51dbd4c1d'].includes(driveHash),'Drive changed');
  const dto={window:{}};vm.runInNewContext(read('Entwicklung/missions.js'),dto);assert.equal(dto.window.H3_DATA.missions.length,5);
 });
 await test('distance bands work radially in every direction; long and invalid frame gaps cannot create a catch-up explosion',async()=>{

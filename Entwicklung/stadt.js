@@ -4,6 +4,8 @@ window.makeCity = function makeCity(T, scene) {
   const rand = () => ((seed = (Math.imul(1664525, seed) + 1013904223) >>> 0) / 4294967296);
   const between = (a,b) => a+(b-a)*rand();
   const pick = a => a[Math.floor(rand()*a.length)];
+  // Surface variation has its own deterministic source; layout/collider randomness is untouched.
+  const surfaceNoise=(x,z,k=0)=>{const v=Math.sin(x*12.9898+z*78.233+k*37.719)*43758.5453;return v-Math.floor(v);};
   const PI=Math.PI, TAU=2*PI, blocks=[], dynamic=[];
   const root=new T.Group(); scene.add(root);
   let pub=null;
@@ -20,6 +22,7 @@ window.makeCity = function makeCity(T, scene) {
   const glassmat=new T.MeshPhysicalMaterial({color:0x8fa9af,metalness:.01,roughness:.11,transparent:true,opacity:.14,depthWrite:false,side:T.DoubleSide,forceSinglePass:true,clearcoat:.38,clearcoatRoughness:.12,envMapIntensity:.6});
   // Existing skyline panes sit on solid walls: opaque blue-grey glazing keeps their depth readable.
   const distantWindowGlazing=new T.MeshStandardMaterial({color:0xffffff,roughness:.30,metalness:.12,side:T.DoubleSide});distantWindowGlazing.name='distant_window_glazing';
+  const architecturalMetal=new T.MeshStandardMaterial({color:0xffffff,roughness:.58,metalness:.65,envMapIntensity:.44});architecturalMetal.name='city_zinc_drainage';
   function instance(g,m,x,y,z,sx,sy,sz,c,rx=0,ry=0,rz=0){
     let byMat=batches.get(g);if(!byMat){byMat=new Map();batches.set(g,byMat);}
     let items=byMat.get(m);if(!items){items=[];byMat.set(m,items);}
@@ -57,8 +60,8 @@ window.makeCity = function makeCity(T, scene) {
   }
   scene.background=new T.Color(0xb8c9d4);
   scene.fog=new T.FogExp2(0xc3cfd4,.0023);
-  scene.add(new T.HemisphereLight(0xc9def1,0x837a67,.92));
-  const sunLight=new T.DirectionalLight(0xffecd5,2.50);sunLight.position.set(-110,78,-63);scene.add(sunLight);
+  scene.add(new T.HemisphereLight(0xc9def1,0x696b65,.72));
+  const sunLight=new T.DirectionalLight(0xffecd5,2.65);sunLight.position.set(-110,78,-63);scene.add(sunLight);
   sunLight.castShadow=true;
   Object.assign(sunLight.shadow.camera,{left:-134,right:134,top:126,bottom:-126,near:1,far:342});
   sunLight.shadow.camera.updateProjectionMatrix();
@@ -126,7 +129,7 @@ window.makeCity = function makeCity(T, scene) {
   },true);
   const surfaceLoader=new T.TextureLoader();
   const relief=(window.cityTexture?window.cityTexture(T,'beige_wall_001_nor_gl_1k.jpg'):surfaceLoader.load(window.cityAsset('beige_wall_001_nor_gl_1k.jpg')));
-  relief.wrapS=relief.wrapT=T.RepeatWrapping;relief.anisotropy=4;
+  relief.wrapS=relief.wrapT=T.RepeatWrapping;relief.anisotropy=4;relief.colorSpace=T.NoColorSpace;relief.repeat.set(2.4,1.5);
   const stucco=new Image();stucco.src=window.cityAsset('beige_wall_001_diff_1k.jpg');
   function ground(x,z,w,d,y,tex,meter,colour=0xffffff){
     const road=tex===asphalt,name=road?'belag':'quaistein';
@@ -186,14 +189,33 @@ window.makeCity = function makeCity(T, scene) {
   distantPanePair.setAttribute('normal',new T.Float32BufferAttribute([0,0,-1,0,0,-1,0,0,-1,0,0,-1,0,0,1,0,0,1,0,0,1,0,0,1],3));
   distantPanePair.setAttribute('uv',new T.Float32BufferAttribute([0,1,1,1,0,0,1,0,0,1,1,1,0,0,1,0],2));
   distantPanePair.setIndex([0,1,2,2,1,3,4,6,5,6,7,5]);
+  const farWallMap=canvasTexture(256,512,(c,w,h)=>{
+    c.fillStyle='#e2e3df';c.fillRect(0,0,w,h);
+    const daylight=c.createLinearGradient(0,0,w,0);
+    daylight.addColorStop(0,'rgba(61,70,72,.15)');daylight.addColorStop(.055,'rgba(61,70,72,.03)');
+    daylight.addColorStop(.52,'rgba(255,255,255,.025)');daylight.addColorStop(.945,'rgba(61,70,72,.03)');daylight.addColorStop(1,'rgba(61,70,72,.15)');
+    c.fillStyle=daylight;c.fillRect(0,0,w,h);
+    for(let i=0;i<8;i++){
+      const x=i*w/8;c.fillStyle=i%3===0?'rgba(75,83,81,.07)':'rgba(255,255,250,.035)';c.fillRect(x+1,0,w/8-2,h);
+      c.fillStyle='rgba(69,78,79,.11)';c.fillRect(x,0,1,h);
+    }
+    for(let row=1;row<16;row++){
+      c.fillStyle='rgba(79,86,86,.105)';c.fillRect(0,row*h/16,w,1.5);
+      c.fillStyle='rgba(251,252,246,.12)';c.fillRect(0,row*h/16+1.5,w,1);
+    }
+    // Restrained rain streaks below the coping; no baked directional sun shadow.
+    const rain=c.createLinearGradient(0,0,0,h*.22);rain.addColorStop(0,'rgba(63,70,65,.17)');rain.addColorStop(1,'rgba(63,70,65,0)');
+    c.fillStyle=rain;c.fillRect(0,0,w,h*.22);
+  });farWallMap.name='city_far_mineral_surface';
+  const farWallMat=new T.MeshStandardMaterial({map:farWallMap,color:0xffffff,roughness:.90,metalness:0});farWallMat.name='city_far_masonry';
   for(let i=0;i<148;i++){
     const side=i%3;
     const x=side===0?between(-130,240):side===1?between(132,240):between(-90,225);
     const z=side===0?between(-230,-135):side===1?between(-170,190):between(140,255);
     const w=between(6,16),d=between(6,16),h=between(11,53)+(side===1?10:0);
     const col=pick([0x8b9496,0xa3a6a2,0x90989b,0x7b878d,0xaba9a0]);
-    box(x,h/2-.5,z,w,h,d,col);
-    if(i%3===0)box(x,h+1.8,z,w*.72,4,d*.78,col);
+    box(x,h/2-.5,z,w,h,d,col,0,farWallMat);
+    if(i%3===0)box(x,h+1.8,z,w*.72,4,d*.78,col,0,farWallMat);
     if(i%5===0)box(x,h+5,z,.16,9,.16,ink);
     if(i%2===0)for(let y=5;y<h-2;y+=4.2){
       box(x-w/2-.08,y,z,.13,.13,d*.84,0xa7b1ae);
@@ -202,10 +224,12 @@ window.makeCity = function makeCity(T, scene) {
     // Economical background LOD: all four walls have panes, including the city-facing sides.
     for(let y=3;y<h-1.8;y+=3.35){
       for(let col=-w/2+1.2;col<w/2-.6;col+=2.1){
-        instance(distantPanePair,distantWindowGlazing,x+col,y,z,.83,1.44,d+.05,0x596f7a);
+        const shade=[0x52646c,0x68767a,0x738184,0x4b5c63,0x616d70][Math.floor(surfaceNoise(i,col,y)*5)];
+        instance(distantPanePair,distantWindowGlazing,x+col,y,z,.83,1.44,d+.05,shade);
       }
       for(let col=-d/2+1.2;col<d/2-.6;col+=2.1){
-        instance(distantPanePair,distantWindowGlazing,x,y,z+col,.83,1.44,w+.05,0x63767b,0,PI/2,0);
+        const shade=[0x5b6970,0x717c7e,0x5b6d75,0x7c8582,0x53636a][Math.floor(surfaceNoise(i,col,y+19)*5)];
+        instance(distantPanePair,distantWindowGlazing,x,y,z+col,.83,1.44,w+.05,shade,0,PI/2,0);
       }
     }
   }
@@ -240,11 +264,17 @@ window.makeCity = function makeCity(T, scene) {
     },true);
     tex.dispose();
     const file=['kalk','shutter','office','loft','ocker','kalk'][facePalettes.indexOf(p)];
-    return new T.MeshStandardMaterial({map:surface(file+'.jpg'),color:0xffffff,roughness:file==='office'?.48:.82,metalness:file==='office'?.12:.015,envMapIntensity:.30});
+    const mat=new T.MeshStandardMaterial({map:surface(file+'.jpg'),color:0xffffff,vertexColors:true,roughness:file==='office'?.67:.91,metalness:file==='office'?.05:0,envMapIntensity:.28});
+    // Relief belongs to mineral surfaces; the separate glazing stays optically smooth.
+    if(file!=='office'){mat.normalMap=relief;mat.normalScale.setScalar(file==='loft'?.12:.19);}
+    mat.name='city_masonry_'+facePalettes.indexOf(p);return mat;
   });
   const glazingStart=facadeMats.length;
-  for(const file of ['kalk','shutter','office','loft','ocker','kalk'])facadeMats.push(new T.MeshPhysicalMaterial({map:surface(file+'.jpg'),color:0xdde4e2,roughness:.32,metalness:.045,clearcoat:.38,clearcoatRoughness:.24,envMapIntensity:.52}));
-  const faceGroups=facadeMats.map(()=>({p:[],uv:[],indices:[]}));
+  for(const [i,file] of ['kalk','shutter','office','loft','ocker','kalk'].entries()){
+    const mat=new T.MeshPhysicalMaterial({map:surface(file+'.jpg'),color:0xe6ebeb,vertexColors:true,roughness:file==='office'?.17:.22,metalness:0,ior:1.5,clearcoat:.28,clearcoatRoughness:.16,envMapIntensity:.66});
+    mat.name='city_recessed_glazing_'+i;facadeMats.push(mat);
+  }
+  const faceGroups=facadeMats.map(()=>({p:[],uv:[],c:[],indices:[]}));
   // Genuine recessed photographic window bays: the masonry and glazing never share a plane.
   const frameMat=new T.MeshStandardMaterial({color:0xffffff,roughness:.38,metalness:.48});
   const revealMat=new T.MeshStandardMaterial({color:0xffffff,roughness:.88});
@@ -254,23 +284,27 @@ window.makeCity = function makeCity(T, scene) {
     [.145,.38,.635,.871,.18,.71],[.14,.36,.618,.862,.18,.71],[.034,.477,.531,.954,.185,.795],
     [.068,.454,.554,.937,.215,.886],[.108,.383,.604,.89,.250,.729],[.145,.38,.635,.871,.18,.71]
   ];
-  function quad(group,points,coords){
+  function quad(group,points,coords,tint=0xffffff){
     const q=faceGroups[group],n=q.p.length/3;
-    for(const p of points)q.p.push(...p);q.uv.push(...coords);q.indices.push(n,n+1,n+2,n,n+2,n+3);
+    const colour=new T.Color(tint);
+    for(const p of points){q.p.push(...p);q.c.push(colour.r,colour.g,colour.b);}q.uv.push(...coords);q.indices.push(n,n+1,n+2,n,n+2,n+3);
   }
   function facade(x,y,z,dx,h,dz,theme){
     const len=Math.hypot(dx,dz),columns=Math.max(1,Math.round(len/5.1)),rows=Math.max(1,Math.round(h/3.15));
     const [left1,right1,left2,right2,sill,lintel]=windowRanges[theme],depth=theme===2?.13:.205;
     const ox=-dz/len,oz=dx/len;
     for(let row=0;row<rows;row++)for(let col=0;col<columns;col++){
+      const variation=surfaceNoise(x+col*2.17,z+row*3.11,theme);
+      const stone=variation<.15?0xdedfd9:variation>.84?0xf4eee3:0xf5f5f0;
+      const windowTint=[0xc6d1d5,0xe2e3db,0xd8e0e0,0xbecdd1,0xede9df][Math.floor(surfaceNoise(x+col,z-row,theme+41)*5)];
       const pt=(u,v,d=0)=>[x+(col+u)*dx/columns+ox*d,y+(row+v)*h/rows,z+(col+u)*dz/columns+oz*d];
-      const panel=(a,b,c,d,group=theme,inset=0)=>quad(group,[pt(a,b,inset),pt(c,b,inset),pt(c,d,inset),pt(a,d,inset)],[a,b,c,b,c,d,a,d]);
+      const panel=(a,b,c,d,group=theme,inset=0,tint=stone)=>quad(group,[pt(a,b,inset),pt(c,b,inset),pt(c,d,inset),pt(a,d,inset)],[a,b,c,b,c,d,a,d],tint);
       panel(0,0,1,sill);panel(0,lintel,1,1);
       panel(0,sill,left1,lintel);panel(right1,sill,left2,lintel);panel(right2,sill,1,lintel);
       for(const [l,r] of [[left1,right1],[left2,right2]]){
-        panel(l,sill,r,lintel,glazingStart+theme,-depth);
-        for(const [a,b,c,d] of [[l,sill,r,sill],[r,sill,r,lintel],[r,lintel,l,lintel],[l,lintel,l,sill]])quad(theme,[pt(a,b),pt(c,d),pt(c,d,-depth),pt(a,b,-depth)],[a,b,c,d,c,d,a,b]);
-        if(theme!==2&&theme!==3)quad(theme,[pt(l-.035,sill,.14),pt(r+.035,sill,.14),pt(r+.035,sill),pt(l-.035,sill)],[l-.035,sill-.025,r+.035,sill-.025,r+.035,sill,l-.035,sill]);
+        panel(l,sill,r,lintel,glazingStart+theme,-depth,windowTint);
+        for(const [edge,[a,b,c,d]] of [[l,sill,r,sill],[r,sill,r,lintel],[r,lintel,l,lintel],[l,lintel,l,sill]].entries())quad(theme,[pt(a,b),pt(c,d),pt(c,d,-depth),pt(a,b,-depth)],[a,b,c,d,c,d,a,b],edge===2?0xaaaead:0xd5d8d2);
+        if(theme!==2&&theme!==3)quad(theme,[pt(l-.035,sill,.14),pt(r+.035,sill,.14),pt(r+.035,sill),pt(l-.035,sill)],[l-.035,sill-.025,r+.035,sill-.025,r+.035,sill,l-.035,sill],stone);
       }
     }
   }
@@ -309,7 +343,7 @@ window.makeCity = function makeCity(T, scene) {
     }else{box(x,h/2,z,w-2.4,h,d-2.4,0x59625e);block(x,z,w,d);shadowShells.push([x,h/2,z,w,h,d]);}
     addFacades(x,z,w,d,3.65,h-3.65,theme);
     box(x,h-.08,z,w+.42,.35,d+.42,trim);
-    box(x,h+.19,z,w+.68,.13,d+.68,0xaeb5b1);
+    box(x,h+.19,z,w+.68,.13,d+.68,0xaeb5b1,0,architecturalMetal);
     box(x,h+.38,z,w+.41,.27,d+.41,col);
     for(let i=0;i<2;i++){
       const cx=x+between(-w*.24,w*.24),cz=z+between(-d*.2,d*.2);
@@ -324,6 +358,34 @@ window.makeCity = function makeCity(T, scene) {
       if(levels>5){
         box(x,h+4.95,z,w*.48,2.8,d*.4,col);
         for(let f=-1;f<=1;f++)box(x+f*.57,h+6.2,z,w*.035,2.5,d*.3,trim);
+      }
+    }
+    // Metre-scaled zinc downpipes, brackets and a mineral plinth. They reuse two
+    // shared geometry/material batches without changing the historical colliders.
+    // The playable pub facade/interior and its V16 LOD are left to the Pub owner.
+    if(!isPub){
+      const pipeColour=theme===2?0x849092:0x8d918a;
+      const backZ=z-d/2-.12;
+      for(const side of[-1,1]){
+        const px=x+side*(w/2-.27);
+        cyl(px,(h+.30)/2,backZ,.105,h-.55,.105,pipeColour,architecturalMetal);
+        for(let y=1.25;y<h-.6;y+=3.8)box(px,y,backZ-.006,.18,.065,.15,0x737b78,0,architecturalMetal);
+        box(px,.27,backZ,.14,.34,.14,0x686f6b,0,architecturalMetal);
+      }
+      // A third pipe on alternating side walls is visible from the principal road.
+      if(surfaceNoise(x,z,83)>.47){
+        const pz=z+d/2-.56,px=x+w/2+.12;
+        cyl(px,(h+.30)/2,pz,.105,h-.55,.105,pipeColour,architecturalMetal);
+        for(let y=1.25;y<h-.6;y+=3.8)box(px+.006,y,pz,.15,.065,.18,0x737b78,0,architecturalMetal);
+      }
+      const plinth=theme===4?0xa29b8a:0x94998f;
+      // Base courses occupy only the three non-entry sides; the entrance threshold stays open.
+      if(Math.abs(nx)>.5){
+        box(x+nx*.07,.18,z-d/2+.07,w-.14,.43,.14,plinth);box(x+nx*.07,.18,z+d/2-.07,w-.14,.43,.14,plinth);
+        box(x-nx*(w/2-.07),.18,z,.14,.43,d,plinth);
+      }else{
+        box(x-w/2+.07,.18,z+nz*.07,.14,.43,d-.14,plinth);box(x+w/2-.07,.18,z+nz*.07,.14,.43,d-.14,plinth);
+        box(x,.18,z-nz*(d/2-.07),w,.43,.14,plinth);
       }
     }
     const title=opts.name||shopNames[shopNo++%shopNames.length];
@@ -404,8 +466,8 @@ window.makeCity = function makeCity(T, scene) {
   for(let i=0;i<faceGroups.length;i++){
     const q=faceGroups[i];if(!q.indices.length)continue;
     const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(q.p,3));
-    g.setAttribute('uv',new T.Float32BufferAttribute(q.uv,2));g.setIndex(q.indices);g.computeVertexNormals();
-    const mesh=new T.Mesh(g,facadeMats[i]);mesh.receiveShadow=true;root.add(mesh);
+    g.setAttribute('uv',new T.Float32BufferAttribute(q.uv,2));g.setAttribute('color',new T.Float32BufferAttribute(q.c,3));g.setIndex(q.indices);g.computeVertexNormals();
+    const mesh=new T.Mesh(g,facadeMats[i]);mesh.name=facadeMats[i].name;mesh.receiveShadow=true;root.add(mesh);
   }
   /* Each frond is a rib with individually modelled, tapered leaflets. All palms
      use one geometry and one instanced draw, including their curved bark. */
@@ -987,12 +1049,12 @@ window.makeCity = function makeCity(T, scene) {
   const pc=new T.Color();
   for(const [geom,byMat] of batches)for(const [mat,list] of byMat){
     const cells=new Map();
-    for(const item of list){const m=item[0].elements,key=(list.length>512||treeGeometries.has(geom))?Math.floor(m[12]/64)+'/'+Math.floor(m[14]/64):'all';if(!cells.has(key))cells.set(key,[]);cells.get(key).push(item);}
+    for(const item of list){const m=item[0].elements,key=((list.length>512&&mat!==architecturalMetal)||treeGeometries.has(geom))?Math.floor(m[12]/64)+'/'+Math.floor(m[14]/64):'all';if(!cells.has(key))cells.set(key,[]);cells.get(key).push(item);}
     for(const [key,items] of cells){
       const mesh=new T.InstancedMesh(geom,mat,items.length);mesh.name='city_batch_'+key;
       items.forEach(([matrix,col],i)=>{mesh.setMatrixAt(i,matrix);mesh.setColorAt(i,pc.set(col));});
       mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
-      if(geom===boxGeom&&(mat===clay||mat===wallMat||mat===revealMat||mat===frameMat))mesh.receiveShadow=true;
+      if(geom===boxGeom&&(mat===clay||mat===wallMat||mat===revealMat||mat===frameMat)||mat===architecturalMetal)mesh.receiveShadow=true;
       if(geom===benchSeatGeo||geom===benchBackGeo||mat===benchMetal){mesh.castShadow=true;mesh.receiveShadow=true;mesh.name='city_bench_'+key;}
       if(mat===palmMat||treeGeometries.has(geom)){mesh.castShadow=true;mesh.receiveShadow=true;mesh.name='city_tree_'+key;}
       if(mat===foliage)mesh.customDepthMaterial=foliageDepth;

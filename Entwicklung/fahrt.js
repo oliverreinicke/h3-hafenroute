@@ -115,7 +115,8 @@ window.Drive = (() => {
     {name:'Freiwilliger Fahrdienst',type:'volunteer',sx:1.03,sy:1.04,sz:1.06,cab:1.10,roof:1.06,top:13.8},
     {name:'Rollstuhlbus',type:'wheelchair',sx:1.12,sy:1,sz:1.20,top:12.5},
     {name:'Liegendtransporter',type:'lying',sx:1.12,sy:1,sz:1.25,top:12.5},
-    {name:'Rettungswagen mit Team',type:'ambulance',sx:1.13,sy:1,sz:1.25,top:13.8}
+    {name:'Rettungswagen mit Team',type:'ambulance',sx:1.13,sy:1,sz:1.25,top:13.8},
+    {name:'Sportwagen',type:'civil',sx:1,sy:1,sz:1,top:19.4}
   ];
   function batchParts(parent){
     const groups=new Map();
@@ -325,7 +326,7 @@ window.Drive = (() => {
     catch(error){renderer=null;canvas=null;throw new Error("3D benötigt WebGL. Bitte das Spiel in einem Browser mit aktivierter Grafikbeschleunigung öffnen.");}
     renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.6));
     if(T.SRGBColorSpace && "outputColorSpace" in renderer)renderer.outputColorSpace=T.SRGBColorSpace;
-    renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.06;
+    renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
     renderer.shadowMap.enabled=true;
     renderer.shadowMap.type=T.PCFSoftShadowMap;
     renderer.shadowMap.autoUpdate=false;
@@ -339,7 +340,7 @@ window.Drive = (() => {
     for(let i=0;i<60;i++){const x=i*8.6,h=4+13*(.5+.5*Math.sin(i*8.17));env.fillStyle=i%3===0?"#64727a":"#7b8182";env.fillRect(x,133-h,7,h);env.fillStyle=i%4===0?"#d7d8c9":"#acc0c8";env.fillRect(x+1,130-h,5,1.5)}
     env.fillStyle="#fff6dd";env.beginPath();env.arc(114,80,7,0,Math.PI*2);env.fill();
     const reflection=new T.CanvasTexture(envCanvas);reflection.colorSpace=T.SRGBColorSpace;reflection.mapping=T.EquirectangularReflectionMapping;
-    scene.environment=reflection;scene.environmentIntensity=.77;
+    scene.environment=reflection;scene.environmentIntensity=.84;
     camera=new T.PerspectiveCamera(54,1,.11,440);
     city=window.makeCity(T,scene);navigation=window.H3Navigation?.create(T,scene,{groundArrows:false});
     setupShadow();perf=window.H3Performance?.create({devicePixelRatio:window.devicePixelRatio||1,onProfile:applyProfile});if(perf)perf.setQuality(qualityChoice);
@@ -349,9 +350,10 @@ window.Drive = (() => {
       environmentReady=false; // Capture only after decoded textures and avatars are ready.
     }
     person=makePerson();fleet=FLEET.map((f,i)=>makeCar(f.position,i));
-    const makeCivil=(config,index,identity)=>window.H3Vehicles.make(T,scene,config,index,{...models[index],name:identity.name||'Stadtwagen',top:12.5},identity);
-    if(window.H3Mobility&&window.H3Vehicles)fleet.push(...window.H3Mobility.create(T,scene,makeCivil));
-    traffic=window.H3Traffic?.create(T,scene,{makeVehicle:makeCivil,population:16})||null;
+    const makeCivil=(config,index,identity)=>window.H3Vehicles.make(T,scene,config,index,{...models[index],name:identity.name||(index===5?'Sportwagen':'Stadtwagen'),top:index===5?models[5].top:12.5},identity);
+    const sports=window.H3Vehicles?.getStatus?.().sportsReady===true;
+    if(window.H3Mobility&&window.H3Vehicles)fleet.push(...window.H3Mobility.create(T,scene,makeCivil,{sports}));
+    traffic=window.H3Traffic?.create(T,scene,{makeVehicle:makeCivil,population:16,sports})||null;
     car=fleet[0];marker=makeMarker();pieces={char:person.root,vehicle:car.root};
     canvas.style.touchAction="none";
     canvas.addEventListener("pointerdown",pointerDown);canvas.addEventListener("pointermove",pointerMove);
@@ -482,7 +484,7 @@ window.Drive = (() => {
     if(!pieces)return null;const p=(mode==='walk'?pieces.char:pieces.vehicle).position,n=mode==='walk'?closestCar():null;
     if(target?.id){const v=fleet.find(v=>v.id===target.id)||traffic?.getVehicles?.().find(v=>v.id===target.id);if(v){target.x=v.root?v.root.position.x:v.x;target.z=v.root?v.root.position.z:v.z;}}
     const point=car.root.position,pickupDistance=mission?Math.hypot(point.x-mission.pickup.x,point.z-mission.pickup.z):Infinity,dropoffDistance=mission?Math.hypot(point.x-mission.dropoff.x,point.z-mission.dropoff.z):Infinity;
-    const info={exitPending:!!pendingExit,enterPending:!!pendingEnter,autoRunning:mode==='walk'&&!inPub(p.x,p.z)&&walkRunTime>=2,stationary:Math.abs(velocity)<.02,mode,x:p.x,z:p.z,heading:mode==='walk'?characterHeading:vehicleHeading,viewHeading:Number.isFinite(viewHeading)?viewHeading:wrap((mode==='walk'?characterHeading:vehicleHeading)+orbit),speed:Math.round(Math.abs(mode==='car'?velocity:footSpeed)*3.6),vehicleId:car.id,vehicleType:car.type,vehicleName:car.spec.name,vehicleKind:car.kind||'car',civilVehicle:!!car.civil,nearVehicle:n?{id:n.id,type:n.type,name:n.spec?.name||n.name,kind:n.kind||'car',civil:!!n.civil,traffic:!!n.traffic,speed:n.speed||0}:null,nearPatient:!!closestPerson(),nearCitizen:closestCitizen(),pickupDistance,dropoffDistance,passengerPresent,delivered,atTarget:!!target&&targetDistance()<(mode==='car'?12:3.8),distance:targetDistance(),targetX:target?.x,targetZ:target?.z,targetId:target?.id,cars:fleet.filter(f=>!f.civil).map(f=>({id:f.id,type:f.type,name:f.spec.name,x:f.root.position.x,z:f.root.position.z})),mobility:fleet.filter(f=>f.civil).map(f=>({id:f.id,type:f.type,kind:f.kind,civil:true,name:f.spec.name,x:f.root.position.x,z:f.root.position.z})).concat(traffic?.getVehicles?.()||[]),roads:{x:[-80,-24,32,88],z:[-84,-28,28,84]},collisionCount,travelDistance,firstPerson:mode==='car'&&firstPerson,missionId:mission?.id,pubLocation:inPub(p.x,p.z)?'inside':'outside',nearPubCounter:!!nearPubCounter(),pubOrderState:pubOrder?.state||'idle',pubOrderItem:pubOrder?.item||null};info.guidance=navigation?.getGuidance(info,target);info.performance=getPerformance();return info;
+    const info={exitPending:!!pendingExit,enterPending:!!pendingEnter,autoRunning:mode==='walk'&&!inPub(p.x,p.z)&&walkRunTime>=2,stationary:Math.abs(velocity)<.02,mode,x:p.x,z:p.z,heading:mode==='walk'?characterHeading:vehicleHeading,viewHeading:Number.isFinite(viewHeading)?viewHeading:wrap((mode==='walk'?characterHeading:vehicleHeading)+orbit),speed:Math.round(Math.abs(mode==='car'?velocity:footSpeed)*3.6),vehicleId:car.id,vehicleModelIndex:car.index,vehicleType:car.type,vehicleName:car.spec.name,vehicleKind:car.kind||'car',civilVehicle:!!car.civil,nearVehicle:n?{id:n.id,modelIndex:n.modelIndex??n.index,type:n.type,name:n.spec?.name||n.name,kind:n.kind||'car',civil:!!n.civil,traffic:!!n.traffic,speed:n.speed||0}:null,nearPatient:!!closestPerson(),nearCitizen:closestCitizen(),pickupDistance,dropoffDistance,passengerPresent,delivered,atTarget:!!target&&targetDistance()<(mode==='car'?12:3.8),distance:targetDistance(),targetX:target?.x,targetZ:target?.z,targetId:target?.id,cars:fleet.filter(f=>!f.civil).map(f=>({id:f.id,type:f.type,name:f.spec.name,x:f.root.position.x,z:f.root.position.z})),mobility:fleet.filter(f=>f.civil).map(f=>({id:f.id,modelIndex:f.index,type:f.type,kind:f.kind,civil:true,name:f.spec.name,x:f.root.position.x,z:f.root.position.z})).concat(traffic?.getVehicles?.()||[]),roads:{x:[-80,-24,32,88],z:[-84,-28,28,84]},collisionCount,travelDistance,firstPerson:mode==='car'&&firstPerson,missionId:mission?.id,pubLocation:inPub(p.x,p.z)?'inside':'outside',nearPubCounter:!!nearPubCounter(),pubOrderState:pubOrder?.state||'idle',pubOrderItem:pubOrder?.item||null};info.guidance=navigation?.getGuidance(info,target);info.performance=getPerformance();return info;
   }
 
   function broadcast(){lastInfo=getInfo();navigation?.update(lastInfo,target);report?.(lastInfo);}
@@ -693,7 +695,7 @@ window.Drive = (() => {
       const dynamic=[marker?.root,person?.root,patient?.root,patient?.team,traffic?.root,...fleet.map(v=>v.root),...(city?.pedestrians||[]).map(n=>n.anchor)].filter(Boolean),visible=dynamic.map(o=>o.visible);dynamic.forEach(o=>o.visible=false);
       const previous=scene.environment,capture=new T.CubeCamera(.4,420,probeTarget);capture.position.set(-77,3.1,8);
       try{capture.update(renderer,scene);}finally{dynamic.forEach((o,i)=>o.visible=visible[i]);}
-      scene.environment=probeTarget.texture;scene.environmentIntensity=.83;if(previous&&previous!==probeTarget.texture)previous.dispose();environmentReady=true;
+      scene.environment=probeTarget.texture;scene.environmentIntensity=.94;if(previous&&previous!==probeTarget.texture)previous.dispose();environmentReady=true;
     }
     installDrawDiagnostics();if(renderer.isWebGLRenderer&&renderer.compileAsync)await renderer.compileAsync(scene,camera);renderer.render(scene,camera);perf?.reset();
   }

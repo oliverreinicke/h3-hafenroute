@@ -38,7 +38,7 @@ window.H3Vehicles=(()=>{
  function mountingSlots(T,chassis,index,spec,fallback=false){
   // Heights are chosen on the actual blank/fascia locations. Ambulance rear
   // registration sits on the right rear door rather than across its open seam.
-  const heights=fallback?[.49,index>=2?.42:.44]:[[.40,.76],[.451,.72],[.451,.72],[.458,.535],[.34,.81]][index],slots=[];
+  const heights=fallback?[.49,index>=2?.42:.44]:[[.40,.76],[.451,.72],[.451,.72],[.458,.535],[.34,.81],[.31,.49]][index],slots=[];
   chassis.updateWorldMatrix(true,true);const origin=new T.Vector3(),direction=new T.Vector3(),normalMatrix=new T.Matrix3();
   for(let side=0;side<2;side++){
    const end=side?1:-1,width=side?.50:.30,height=side?.11:.08,x=!fallback&&index===4&&side?.44:0,y=heights[side];origin.set(x,y,end*8);direction.set(0,0,-end);
@@ -259,27 +259,37 @@ window.H3Vehicles=(()=>{
   return {root,chassis,wheels,brakeLight,heading,spec,index,id:identity.id,type:identity.type};
  }
  const templates=new Map();let loading=null;
- const files=['estate','minivan','minivan','highvan','ambulance'];
- const fit={estate:{scale:[.96,1.02,.96],wheelY:.33,radius:.33,eye:[.37,1.245,-.31],seat:[-.37,.015,-.34]},minivan:{scale:[.90,.96,.88],wheelY:.368,radius:.368,eye:[.40,1.34,-.12],seat:[-.42,.19,-.01]},highvan:{scale:[.84,.92,.80],wheelY:.352,radius:.352,eye:[.45,1.67,1.05],seat:[-.45,.35,1.05]},ambulance:{scale:[.80,.80,.66],wheelY:.36,radius:.372,eye:[.45,1.63,1.53],seat:[-.45,.25,1.80]}};
+ const files=['estate','minivan','minivan','highvan','ambulance','supercar'];
+ const fileName=key=>key==='supercar'?'h3-v17-supercar.glb':'h3-v4-'+key+'.glb';
+ const fit={supercar:{scale:[.96,1,.96],wheelY:.345,radius:.344486,eye:[.37,.96,.09],seat:[-.37,-.16,.02]},estate:{scale:[.96,1.02,.96],wheelY:.33,radius:.33,eye:[.37,1.245,-.31],seat:[-.37,.015,-.34]},minivan:{scale:[.90,.96,.88],wheelY:.368,radius:.368,eye:[.40,1.34,-.12],seat:[-.42,.19,-.01]},highvan:{scale:[.84,.92,.80],wheelY:.352,radius:.352,eye:[.45,1.67,1.05],seat:[-.45,.35,1.05]},ambulance:{scale:[.80,.80,.66],wheelY:.36,radius:.372,eye:[.45,1.63,1.53],seat:[-.45,.25,1.80]}};
  async function preload(){
-  if(templates.size===4)return;if(loading)return loading;
-  loading=Promise.all([...new Set(files)].map(async key=>{const name='h3-v4-'+key+'.glb',response=await fetch(window.cityAsset(name));if(!response.ok)throw Error('Fahrzeugmodell fehlt: '+name);const gltf=await new window.AssetLoader.GLTFLoader().parseAsync(await response.arrayBuffer(),'');templates.set(key,gltf.scene)})).catch(e=>{loading=null;throw e});
+  if(templates.size===5)return;if(loading)return loading;
+  loading=Promise.all([...new Set(files)].map(async key=>{const name=fileName(key),response=await fetch(window.cityAsset(name));if(!response.ok)throw Error('Fahrzeugmodell fehlt: '+name);const gltf=await new window.AssetLoader.GLTFLoader().parseAsync(await response.arrayBuffer(),'');templates.set(key,gltf.scene)})).catch(e=>{loading=null;throw e});
   return loading;
  }
  function make(T,scene,config,index,spec,identity){
-  const key=files[index];if(!templates.has(key))return makeFallback(T,scene,config,index,spec,identity);
+  const key=files[index];if(index===5&&!templates.has(key))throw Error('Sportwagenmodell ist noch nicht geladen.');if(!templates.has(key))return makeFallback(T,scene,config,index,spec,identity);
   const [x,z,heading,colour]=config,params=fit[key],root=new T.Group(),chassis=new T.Group();root.add(chassis);scene.add(root);
   const normal=new T.Group();normal.scale.set(...params.scale);normal.rotation.y=Math.PI;
   const radialScale=Math.min(params.scale[1],params.scale[2]),groundShift=params.radius*radialScale-params.wheelY*params.scale[1];normal.position.y=groundShift;
   const source=templates.get(key).clone(true);normal.add(source);chassis.add(normal);root.updateMatrixWorld(true);
-  const materials=new Map(),shared=new Map();
+  const materials=new Map(),sportSurfaces=new Map();
+  // The coupe reuses three neutral PBR surfaces with per-vertex finish colours.
+  // This keeps source panel detail while bounding draw calls in civilian traffic.
+  function sportSurface(original){
+   const name=original.name,kind=/^(carbon|trim_gloss)/.test(name)?'carbon':/^(trim_matte|panel_gap|interior$|leather$)/.test(name)?'matte':/^(chrome$|rim_machined$|caliper$)/.test(name)?'alloy':null;if(!kind)return null;
+   if(!sportSurfaces.has(kind)){const values={name:'v17_sport_'+kind,color:0xffffff,vertexColors:true,side:T.DoubleSide,roughness:kind==='matte'?.76:kind==='carbon'?.25:.24,metalness:kind==='alloy'?.82:kind==='carbon'?.20:.03,envMapIntensity:1.05};sportSurfaces.set(kind,kind==='carbon'?new T.MeshPhysicalMaterial({...values,clearcoat:.65,clearcoatRoughness:.15}):new T.MeshStandardMaterial(values));}
+   return sportSurfaces.get(kind);
+  }
+  function surfaceColour(g,m,original){if(!m.vertexColors)return;const c=original.color||new T.Color(0x999999),array=new Float32Array(g.attributes.position.count*3);for(let k=0;k<array.length;k+=3){array[k]=c.r;array[k+1]=c.g;array[k+2]=c.b}g.setAttribute('color',new T.BufferAttribute(array,3));}
   const brakeLight=new T.MeshStandardMaterial({name:'v4_tail_lamp',color:0x9e1020,emissive:0xf32b2c,emissiveIntensity:.48,roughness:.23});
   const wheelMetal=new T.MeshStandardMaterial({name:'v4_wheel_alloy',color:0xffffff,vertexColors:true,roughness:.29,metalness:.82});
   function material(original){
    if(/lamp_red|light_rear|lens_red|^red$/.test(original.name))return brakeLight;
-   if(materials.has(original.uuid))return materials.get(original.uuid);const m=original.clone();m.envMapIntensity=.8;
-   if(/paint/.test(m.name)){m.color.set(colour);m.roughness=.245;m.metalness=.58;if('clearcoat'in m){m.clearcoat=.88;m.clearcoatRoughness=.15;}}
-   if(/glass|lens_clear|frosted/.test(m.name)){if('transmission'in m)m.transmission=0;m.transparent=true;m.opacity=/privacy/.test(m.name)?.25:.19;m.depthWrite=false;m.side=T.DoubleSide;m.roughness=.095;m.color.set(0x91a7ae);if('clearcoat'in m)m.clearcoat=.35;}
+   if(materials.has(original.uuid))return materials.get(original.uuid);const combined=index===5?sportSurface(original):null;if(combined){materials.set(original.uuid,combined);return combined;}const m=original.clone();m.envMapIntensity=.8;
+   if(/paint/.test(m.name)){m.color.set(colour);m.roughness=.22;m.metalness=.48;m.envMapIntensity=1.05;if('clearcoat'in m){m.clearcoat=.92;m.clearcoatRoughness=.10;}}
+   if(index===5&&m.name==='mirror_glass'){m.metalness=.94;m.roughness=.075;}else if(/glass|lens_clear|frosted/.test(m.name)){if('transmission'in m)m.transmission=0;m.transparent=true;m.opacity=/privacy/.test(m.name)?.25:.19;m.depthWrite=false;m.side=T.DoubleSide;m.roughness=.095;m.color.set(0x91a7ae);if('clearcoat'in m)m.clearcoat=.35;}
+   if(index===5&&/light_front/.test(m.name))m.emissiveIntensity=.7;
    if('transmission'in m&&m.transmission>0)m.transmission=0;
    materials.set(original.uuid,m);return m;
   }
@@ -311,7 +321,7 @@ window.H3Vehicles=(()=>{
     if(/tire|tyre|rubber/.test(q.material.name))m=material(q.material);else{m=wheelMetal;const colour=q.material.color||new T.Color(0x989da4),arr=new Float32Array(g.attributes.position.count*3);for(let k=0;k<arr.length;k+=3){arr[k]=colour.r;arr[k+1]=colour.g;arr[k+2]=colour.b}g.setAttribute('color',new T.BufferAttribute(arr,3));}add(groups,g,m);
    });build(groups,axle,true);wheels.push({hub,axle,front:name.includes('_F')});
   }
-  const staticGroups=new Map();source.traverse(q=>{if(!q.isMesh||moving.has(q))return;let g=geometry(q);if(index===2&&q.name.startsWith('seats'))g=removeRearSeats(g);add(staticGroups,g,material(q.material));});
+  const staticGroups=new Map();source.traverse(q=>{if(!q.isMesh||moving.has(q))return;let g=geometry(q);if(index===2&&q.name.startsWith('seats'))g=removeRearSeats(g);const m=material(q.material);if(index===5)surfaceColour(g,m,q.material);add(staticGroups,g,m);});
   normal.removeFromParent();build(staticGroups,chassis);
   const matte=new T.MeshStandardMaterial({color:0x273740,roughness:.7}),bright=new T.MeshStandardMaterial({color:0xc9d3d6,metalness:.75,roughness:.33});
   function box(w,h,d,m,x,y,z){const q=new T.Mesh(new T.BoxGeometry(w,h,d),m);q.position.set(x,y,z);chassis.add(q);return q;}
@@ -323,14 +333,14 @@ window.H3Vehicles=(()=>{
   if(index===2){box(1.40,.035,.35,bright,0,.32,2.31);for(const side of [-1,1])box(.035,.027,1.68,bright,side*.36,.31,1.13);}
   if(index===3){const stripe=new T.MeshStandardMaterial({color:0x317d8c,roughness:.5});for(const side of [-1,1])box(.012,.13,2.30,stripe,side*.854,1.12,.90);}
   const anchor=point=>[-point[0]*params.scale[0],warpy(point[1]*params.scale[1]+groundShift),-point[2]*params.scale[2]];
-  root.userData.vehicleDetail='tevy-cc0-pbr-v4';root.userData.vehicleSource='https://tevy.dev/models/'+({estate:'estate-car',minivan:'family-minivan',highvan:'delivery-van',ambulance:'ambulance'}[key]);root.userData.driverEye=anchor(params.eye);
+  root.userData.vehicleDetail=index===5?'tevy-cc0-sport-v17':'tevy-cc0-pbr-v4';root.userData.vehicleSource='https://tevy.dev/models/'+({supercar:'supercar',estate:'estate-car',minivan:'family-minivan',highvan:'delivery-van',ambulance:'ambulance'}[key]);root.userData.driverEye=anchor(params.eye);
   root.userData.passengerSeat=index===2?[0,.28,.61]:index===3?[0,.32,.57]:index===4?[0,.56,.46]:anchor(params.seat);root.userData.passengerRotationY=Math.PI;
   root.userData.teamSeat=index===4?[.35,.15,-1.18]:null;
   chassis.updateMatrixWorld(true);const bodyBounds=new T.Box3().setFromObject(chassis);root.userData.collisionHalfLength=(bodyBounds.max.z-bodyBounds.min.z)*.5*spec.sz;root.userData.collisionHalfWidth=Math.max(Math.abs(bodyBounds.min.x),Math.abs(bodyBounds.max.x))*spec.sx;root.userData.collisionCenterZ=(bodyBounds.min.z+bodyBounds.max.z)*.5*spec.sz;root.userData.cameraRoofHeight=bodyBounds.max.y*spec.sy;
   attachPlates(T,root,chassis,index,spec,identity);
-  root.position.set(x,index>=2?-.10:-.085,z);root.rotation.y=-heading;root.scale.set(spec.sx,spec.sy,spec.sz);root.updateMatrixWorld(true);
+  root.position.set(x,index>=2&&index<=4?-.10:-.085,z);root.rotation.y=-heading;root.scale.set(spec.sx,spec.sy,spec.sz);root.updateMatrixWorld(true);
   return {root,chassis,wheels,brakeLight,heading,spec,index,id:identity.id,type:identity.type,wheelRadius:params.radius*radialScale*spec.sy};
  }
 
- return {make,preload,makePlates,plateNumber,getStatus:()=>({loaded:templates.size,ready:templates.size===4})};
+ return {make,preload,makePlates,plateNumber,getStatus:()=>({loaded:templates.size,ready:templates.size===5,sportsReady:templates.has('supercar')})};
 })();

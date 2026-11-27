@@ -2,9 +2,11 @@
 window.cityTexturePending=[];
 window.cityTextureReady=()=>Promise.all(window.cityTexturePending);
 window.cityTexture=(T,name)=>{
+ const normal=/_nor_|[-_]n\./.test(name),roughness=/_rough_|[-_]r\./.test(name);
  const family=[],surface=document.createElement('canvas');surface.width=surface.height=2;
- const c=surface.getContext('2d');c.fillStyle=(/_nor_|[-_]n\./.test(name))?'#8080ff':'#b5b1a7';c.fillRect(0,0,2,2);
- const tex=new T.Texture(surface);tex.needsUpdate=true;
+ const c=surface.getContext('2d');c.fillStyle=normal?'#8080ff':roughness?'#d4d4d4':'#b5b1a7';c.fillRect(0,0,2,2);
+ const tex=new T.Texture(surface);tex.name=name;tex.colorSpace=normal||roughness?T.NoColorSpace:T.SRGBColorSpace;tex.needsUpdate=true;
+ tex.userData.surfaceRole=normal?'normal':roughness?'roughness':'colour';
  function track(texture){
   family.push(texture);
   const clone=texture.clone.bind(texture);

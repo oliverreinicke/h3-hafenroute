@@ -12,7 +12,7 @@ const paint=new Proxy({measureText:s=>({width:s.length*20})},{get:(o,k)=>k in o?
 const scene=new T.Scene(),window={GeometryTools:{mergeGeometries},cityAsset:n=>n,AssetLoader:{GLTFLoader:class{async parseAsync(raw){return {scene:geometryScene(raw)}}}}};
 const ctx=vm.createContext({window,console,Map,Set,Math,Number,document:{createElement:()=>({width:1,height:1,getContext:()=>paint})},fetch:async file=>({ok:true,arrayBuffer:async()=>{const b=fs.readFileSync(new URL('../dist/assets/'+file,import.meta.url));return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength)}})});
 for(const name of['fahrzeuge','verkehr'])vm.runInContext(fs.readFileSync(new URL('../Entwicklung/'+name+'.js',import.meta.url),'utf8'),ctx);
-await window.H3Vehicles.preload();assert.equal(window.H3Vehicles.getStatus().loaded,4);
+await window.H3Vehicles.preload();assert.equal(window.H3Vehicles.getStatus().loaded,5);assert.equal(window.H3Vehicles.getStatus().sportsReady,true);
 let factories=0;const specs=[{sx:1,sy:1,sz:1,type:'civil'},{sx:1.03,sy:1.04,sz:1.06,type:'civil'}];
 const traffic=window.H3Traffic.create(T,scene,{makeVehicle(config,index,identity){factories++;return window.H3Vehicles.make(T,scene,config,index,specs[index],identity)}});
 assert.equal(factories,2);assert.equal(traffic.getStatus().cars,10);assert.equal(traffic.root.parent,scene);assert(traffic.root.children.every(q=>q.isInstancedMesh||q.userData.h3Plates));assert(traffic.getStatus().batches<100,'too many material batches');
