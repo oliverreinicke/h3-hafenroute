@@ -151,6 +151,8 @@ Camera-relative walking direction is adapted from swift502/Sketchbook, MIT, Copy
 GTA H3 V13 audio, 26.11.2026: eight Elena Widmer/Selma Yilmaz dialogue clips are new directed synthetic performances generated for this project with HeyGen. The other59 local speech clips retain the V12 recordings. These are synthetic character voices, not recordings of the fictional patients. Playback uses local files; no runtime speech-service request. This provenance notice grants no additional open licence to project content.
 GTA H3 V14 graphics, 27.11.2026: original procedural sailing yacht, cabin motorboat and open motorboat geometry, fittings, teak surface and water-contact mask created for this game. Existing local city assets are retained. No additional external models, textures, services or commercial GTA assets are used. Daylight reflections and distant window materials are local rendering adaptations.
 
+GTA H3 V15 GCB Pub, 27.11.2026: original procedural pub interior, green timber facade, furniture, menu artwork and four food props. The waiter and seated guest reuse the credited local CC0 character data; brick and fabric maps reuse the retained city assets above. No new external service, downloaded model, recorded speech or runtime dependency is introduced.
+
 MIT License
 
 Copyright (c) 2020 swift502
@@ -7441,6 +7443,280 @@ window.drawCover = function drawCover(canvas) {
 };
 
 ;
+/* Original local-only GCB Pub interior and food props. No external requests beyond retained city assets. */
+window.GCBPub=(()=>{
+  function create(T,parent,{x=-95,z=-15,w=6.2,d=8}={}){
+    const PI=Math.PI,hx=w/2,hz=d/2,floorY=-.15,root=new T.Group();root.name='gcb_pub';root.position.set(x,0,z);parent.add(root);
+    const blocks=[],actors=[],buckets=new Map(),textures=[],lights=[],orders=new Map();
+    let seed=91432,disposed=false;
+    const random=()=>((seed=(Math.imul(1664525,seed)+1013904223)>>>0)/4294967296);
+    function canvasTexture(width,height,paint){
+      const c=document.createElement('canvas');c.width=width;c.height=height;paint(c.getContext('2d'),width,height);
+      const tx=new T.CanvasTexture(c);tx.colorSpace=T.SRGBColorSpace;tx.anisotropy=4;textures.push(tx);return tx;
+    }
+    function surface(name,normal=false,rx=1,ry=1){
+      const tx=window.cityTexture?window.cityTexture(T,name):new T.TextureLoader().load(window.cityAsset(name));
+      tx.wrapS=tx.wrapT=T.RepeatWrapping;tx.repeat.set(rx,ry);tx.anisotropy=4;tx.colorSpace=normal?T.NoColorSpace:T.SRGBColorSpace;textures.push(tx);return tx;
+    }
+    const timber=canvasTexture(256,512,(c,tw,th)=>{
+      c.fillStyle='#88613e';c.fillRect(0,0,tw,th);
+      for(let plank=0;plank<5;plank++){
+        const sx=plank*tw/5;c.fillStyle=['#8a6541','#795838','#916b45','#805c3b','#89603d'][plank];c.fillRect(sx+1,0,tw/5-2,th);
+        c.fillStyle='#433c2c';c.fillRect(sx,0,1.5,th);
+        for(let j=0;j<18;j++){const a=sx+2+random()*(tw/5-4);c.strokeStyle='rgba(42,27,15,'+(.045+random()*.07)+')';c.lineWidth=.4+random()*.65;c.beginPath();c.moveTo(a,0);c.bezierCurveTo(a-3,th*.32,a+4,th*.66,a,th);c.stroke();}
+      }
+      for(let i=0;i<850;i++){c.fillStyle=random()>.5?'rgba(255,235,188,.05)':'rgba(28,22,15,.05)';c.fillRect(random()*tw,random()*th,.7,1.6);}
+    });timber.wrapS=timber.wrapT=T.RepeatWrapping;
+    const floorMap=timber.clone();floorMap.repeat.set(4,2);textures.push(floorMap);
+    const greenGrain=canvasTexture(128,256,(c,tw,th)=>{
+      c.fillStyle='#24483d';c.fillRect(0,0,tw,th);
+      for(let i=0;i<180;i++){c.strokeStyle=i%2?'rgba(8,19,13,.07)':'rgba(190,204,162,.035)';const a=random()*tw;c.beginPath();c.moveTo(a,0);c.bezierCurveTo(a-3,th*.25,a+4,th*.8,a,th);c.stroke();}
+    });greenGrain.wrapS=greenGrain.wrapT=T.RepeatWrapping;greenGrain.repeat.set(2,1);
+    const brickMap=surface('h3-v6-klinker.jpg',false,2.4,1.15),brickNormal=surface('h3-v6-klinker-n.jpg',true,2.4,1.15);
+    const fabricNormal=surface('fabric_pattern_07_nor_gl_1k.jpg',true,5,5);
+    const standard=p=>new T.MeshStandardMaterial({color:0xffffff,vertexColors:true,...p});
+    const mats={
+      timber:standard({map:timber,roughness:.52,metalness:.015}),
+      floor:standard({map:floorMap,roughness:.72,metalness:0}),
+      green:standard({map:greenGrain,roughness:.49,metalness:.015}),
+      brick:standard({map:brickMap,normalMap:brickNormal,normalScale:new T.Vector2(.35,.35),roughness:.92}),
+      plaster:standard({color:0xc5b79d,roughness:.94}),
+      dark:standard({color:0x202a25,roughness:.66,metalness:.11}),
+      leather:standard({color:0x683b35,normalMap:fabricNormal,normalScale:new T.Vector2(.075,.075),roughness:.78}),
+      brass:standard({color:0xbb9653,roughness:.28,metalness:.82}),
+      glass:new T.MeshPhysicalMaterial({color:0xc7d4cb,vertexColors:true,roughness:.15,metalness:.015,transparent:true,opacity:.25,depthWrite:false,side:T.DoubleSide,forceSinglePass:true,clearcoat:.5,envMapIntensity:.5}),
+      bottle:standard({roughness:.23,metalness:.03}),
+      ceramic:standard({color:0xe9e5d8,roughness:.25,metalness:.015}),
+      food:standard({roughness:.82,metalness:0}),
+      glow:new T.MeshStandardMaterial({color:0xffd795,emissive:0xffbc62,emissiveIntensity:1.45,roughness:.5,vertexColors:true}),
+      menu:new T.MeshBasicMaterial({color:0xffffff,vertexColors:true})
+    };
+    const cube=new T.BoxGeometry(1,1,1),cylinder=new T.CylinderGeometry(1,1,1,10),sphere=new T.SphereGeometry(1,12,8);
+    const transform=new T.Matrix4(),rotation=new T.Quaternion(),euler=new T.Euler(),position=new T.Vector3(),scale=new T.Vector3(),color=new T.Color();
+    function add(bucket,key,g,px=0,py=0,pz=0,sx=1,sy=1,sz=1,col=0xffffff,rx=0,ry=0,rz=0){
+      position.set(px,py,pz);scale.set(sx,sy,sz);euler.set(rx,ry,rz);rotation.setFromEuler(euler);transform.compose(position,rotation,scale);g.applyMatrix4(transform);
+      const colors=new Float32Array(g.attributes.position.count*3);color.set(col);for(let at=0;at<colors.length;at+=3){colors[at]=color.r;colors[at+1]=color.g;colors[at+2]=color.b;}g.setAttribute('color',new T.BufferAttribute(colors,3));
+      if(!bucket.has(key))bucket.set(key,[]);bucket.get(key).push(g);
+    }
+    const box=(key,px,py,pz,sx,sy,sz,col=0xffffff,ry=0,bucket=buckets)=>add(bucket,key,cube.clone(),px,py,pz,sx,sy,sz,col,0,ry,0);
+    const cyl=(key,px,py,pz,r,h,col=0xffffff,bucket=buckets)=>add(bucket,key,cylinder.clone(),px,py,pz,r,h,r,col);
+    const ball=(key,px,py,pz,sx,sy,sz,col=0xffffff,bucket=buckets)=>add(bucket,key,sphere.clone(),px,py,pz,sx,sy,sz,col);
+    function rod(key,a,b,r,col=0xffffff,bucket=buckets){
+      const delta=new T.Vector3().subVectors(b,a),mid=new T.Vector3().addVectors(a,b).multiplyScalar(.5),q=new T.Quaternion().setFromUnitVectors(new T.Vector3(0,1,0),delta.clone().normalize());
+      const g=cylinder.clone();g.scale(r,delta.length(),r);g.applyQuaternion(q);g.translate(mid.x,mid.y,mid.z);add(bucket,key,g,0,0,0,1,1,1,col);
+    }
+    function merge(parts){
+      const gs=parts.map(g=>{if(!g.index)return g;const flat=g.toNonIndexed();g.dispose();return flat;}),count=gs.reduce((a,g)=>a+g.attributes.position.count,0),out=new T.BufferGeometry();
+      for(const [key,size]of[['position',3],['normal',3],['uv',2],['color',3]]){
+        const values=new Float32Array(count*size);let at=0;for(const g of gs){values.set(g.attributes[key].array,at);at+=g.attributes.position.count*size;}out.setAttribute(key,new T.BufferAttribute(values,size));
+      }
+      for(const g of gs)g.dispose();out.computeBoundingBox();out.computeBoundingSphere();return out;
+    }
+    function flush(bucket,group,name){
+      for(const [key,parts]of bucket){const mesh=new T.Mesh(merge(parts),mats[key]);mesh.name='gcb_'+name+'_'+key;mesh.receiveShadow=key!=='glass'&&key!=='glow';mesh.castShadow=false;group.add(mesh);}
+    }
+    function block(px,pz,sx,sz,name){
+      const b={minX:x+px-sx/2,maxX:x+px+sx/2,minZ:z+pz-sz/2,maxZ:z+pz+sz/2,name:'gcb_'+name};
+      if(['counter','table','stool'].includes(name))b.cameraBlocking=false;
+      blocks.push(b);return b;
+    }
+    function planeTexture(name,text,sub,bg,fg,width,height,px,py,pz,ry=PI/2){
+      const map=canvasTexture(name==='sign'?1024:512,name==='sign'?192:512,(c,cw,ch)=>{
+        c.fillStyle=bg;c.fillRect(0,0,cw,ch);c.strokeStyle=fg;c.lineWidth=3;c.strokeRect(12,12,cw-24,ch-24);c.textAlign='center';c.textBaseline='middle';c.fillStyle=fg;
+        if(name==='sign'){
+          c.font='bold 105px Georgia';c.fillText(text,cw/2,78,cw-80);c.font='22px Georgia';c.fillText(sub,cw/2,146,cw-80);
+        }else{
+          c.font='bold 43px Georgia';c.fillText(text,cw/2,62,cw-56);c.strokeStyle='#bba878';c.lineWidth=1;c.beginPath();c.moveTo(58,105);c.lineTo(cw-58,105);c.stroke();
+          c.font='30px Georgia';for(const [i,line]of sub.split('|').entries())c.fillText(line,cw/2,158+i*70,cw-60);c.font='italic 22px Georgia';c.fillText('Frisch aus unserer Küche',cw/2,458,cw-50);
+        }
+      });
+      const material=new T.MeshBasicMaterial({map,toneMapped:false}),mesh=new T.Mesh(new T.PlaneGeometry(width,height),material);mesh.name='gcb_'+name;mesh.position.set(px,py,pz);mesh.rotation.y=ry;root.add(mesh);return mesh;
+    }
+
+    // Walls enclose a real room; the east doorway is genuinely open.
+    box('floor',0,floorY-.055,0,w-.03,.11,d-.03);
+    box('brick',-hx+.1,1.61,0,.2,3.56,d);
+    box('brick',0,1.61,-hz+.1,w-.2,3.56,.2);
+    box('brick',0,1.61,hz-.1,w-.2,3.56,.2);
+    block(-hx+.1,0,.2,d,'west_wall');block(0,-hz+.1,w-.2,.2,'north_wall');block(0,hz-.1,w-.2,.2,'south_wall');
+    box('plaster',0,3.43,0,w-.2,.15,d-.2);
+    // Timber dado and skirting follow the interior faces.
+    box('green',-hx+.225,.34,0,.075,1.02,d-.35);
+    for(const side of[-1,1]){box('green',0,.34,side*(hz-.225),w-.35,1.02,.075);box('timber',0,.88,side*(hz-.28),w-.38,.075,.08);box('timber',0,-.095,side*(hz-.26),w-.38,.15,.11);}
+    box('timber',-hx+.28,.88,0,.08,.075,d-.4);box('timber',-hx+.26,-.095,0,.11,.15,d-.4);
+    for(let n=-3;n<=3;n++){for(const side of[-1,1])box('green',n*.7,.36,side*(hz-.275),.045,.8,.04,0xe6e7d9);}
+    // Header, oak sill and split glazed bays, never a pane across the portal.
+    const doorHalf=.94,sideWidth=hz-doorHalf;
+    for(const side of[-1,1]){
+      const sz=side*(doorHalf+sideWidth/2);
+      box('green',hx,.22,sz,.25,.78,sideWidth);
+      box('green',hx,3.07,sz,.25,1.05,sideWidth);
+      add(buckets,'glass',new T.PlaneGeometry(sideWidth-.18,1.90),hx+.018,1.6,sz,1,1,1,0xffffff,0,PI/2,0);
+      block(hx,sz,.25,sideWidth,'front_bay');
+      for(const zz of[side*doorHalf,side*(hz-.04),sz]){
+        box('green',hx+.06,1.61,zz,.17,2.05,.09);
+        box('brass',hx+.16,1.61,zz,.018,1.85,.025);
+      }
+      box('timber',hx+.05,.61,sz,.2,.10,sideWidth);
+      box('timber',hx+.05,2.58,sz,.2,.11,sideWidth);
+    }
+    box('green',hx,3.10,0,.25,1.0,doorHalf*2);
+    for(const side of[-1,1]){box('green',hx+.035,1.15,side*doorHalf,.28,2.68,.12);box('brass',hx+.184,1.15,side*doorHalf,.016,2.54,.025);}
+    box('timber',hx+.02,-.135,0,.28,.065,doorHalf*2-.08);
+    // A framed solid timber door rests open against the inner north jamb.
+    const leafX=hx-.89,leafZ=-doorHalf;
+    box('green',leafX,.34,leafZ,1.72,1.02,.075);box('green',leafX,2.20,leafZ,1.72,.32,.075);
+    for(const side of[-1,1])box('green',leafX+side*.77,1.10,leafZ,.18,2.52,.075);
+    add(buckets,'glass',new T.PlaneGeometry(1.30,1.06),leafX,1.53,leafZ-.044);
+    for(const xx of[leafX-.72,leafX+.72])box('timber',xx,1.10,leafZ-.048,.075,2.35,.035);
+    for(const yy of[.08,.91,2.26])box('timber',leafX,yy,leafZ-.048,1.49,.075,.035);
+    rod('brass',new T.Vector3(leafX-.57,.92,leafZ-.10),new T.Vector3(leafX-.57,1.20,leafZ-.10),.019);
+    block(leafX,leafZ,1.72,.10,'open_door');
+    // Framed fascia, cornice and a readable gold serif sign.
+    box('green',hx+.15,3.08,0,.12,.87,d+.16);
+    box('timber',hx+.14,3.57,0,.37,.13,d+.42);
+    box('brass',hx+.218,2.64,0,.025,.032,d+.12);
+    for(const side of[-1,1])box('green',hx+.065,1.71,side*(hz-.07),.25,3.78,.19);
+    planeTexture('sign','GCB Pub','AM QUAI · KÜCHE & GUTE GESELLSCHAFT','#193a2f','#e2c98b',d-.45,.76,hx+.217,3.08,0);
+
+    // Upholstered alcoves leave the central walk/ordering route clear.
+    function booth(side){
+      const bz=side*(hz-.63),tx=1.23,tz=side*(hz-1.64);
+      box('timber',tx,.16,bz,2.64,.54,.80);
+      box('leather',tx,.46,bz,2.54,.18,.73);
+      box('leather',tx,.88,side*(hz-.25),2.64,1.02,.18);
+      for(const end of[-1,1])box('leather',tx+end*1.32,.70,bz,.16,.65,.84);
+      for(let n=-4;n<=4;n++)ball('brass',tx+n*.25,.91,side*(hz-.355),.016,.016,.009,0x998653);
+      box('timber',tx,.68,tz,1.72,.105,.87);
+      cyl('dark',tx,.23,tz,.085,.78);cyl('dark',tx,-.10,tz,.36,.07);
+      block(tx,bz,2.80,.98,'booth');block(tx,tz,1.74,.89,'table');
+      // Coaster and small ceramic vase with a few leaves.
+      cyl('ceramic',tx+.51,.77,tz,.065,.13);rod('bottle',new T.Vector3(tx+.51,.83,tz),new T.Vector3(tx+.54,1.00,tz),.008,0x52633c);
+      for(let j=0;j<3;j++)ball('bottle',tx+.53+(j-1)*.045,.91+j*.03,tz,.07,.02,.035,0x556743);
+    }
+    booth(-1);booth(1);
+    // Tongue-and-groove counter, rounded oak edge and brass foot rail.
+    const barX=-1.85,barLength=d-1.75,topY=.99;
+    box('green',barX,.36,0,.78,1.06,barLength);
+    box('timber',barX,.96,0,.96,.16,barLength+.18);
+    box('timber',barX+.51,.97,0,.07,.11,barLength+.22);
+    for(let n=-3;n<=3;n++){box('timber',barX+.40,.34,n*.83,.035,.83,.045,0xb3a17b);box('green',barX+.425,.35,n*.83+.39,.022,.67,.65,0xced4c5);}
+    rod('brass',new T.Vector3(barX+.75,.13,-barLength*.46),new T.Vector3(barX+.75,.13,barLength*.46),.031);
+    for(const zz of[-2,0,2])rod('brass',new T.Vector3(barX+.43,.13,zz),new T.Vector3(barX+.75,.13,zz),.025);
+    block(barX,0,.99,barLength+.2,'counter');
+    function stool(zz){
+      const sx=-.8;
+      cyl('dark',sx,.19,zz,.045,.64);cyl('dark',sx,-.105,zz,.24,.065);
+      cyl('brass',sx,.18,zz,.20,.025);
+      cyl('timber',sx,.57,zz,.28,.11);cyl('leather',sx,.65,zz,.27,.09);
+      box('leather',sx+.20,.89,zz,.10,.50,.45);
+      block(sx,zz,.58,.58,'stool');
+    }
+    for(const zz of[-2.25,-1.2,2.25])stool(zz);
+
+    // Back-bar mirror, shelves, bottles and tap handles are real geometry.
+    box('timber',-hx+.27,1.95,-.72,.16,1.90,3.70);
+    box('glass',-hx+.365,1.98,-.72,.015,1.62,3.42,0x879688);
+    for(const yy of[1.29,1.97,2.66])box('timber',-hx+.48,yy,-.72,.48,.08,3.70);
+    for(let row=0;row<2;row++)for(let i=0;i<12;i++){
+      const zz=-2.25+i*.285,bx=-hx+.48,yy=1.36+row*.68;
+      cyl('bottle',bx,yy+.15,zz,.054,.25,[0x3c6145,0x73553a,0x7c6b42,0x455c56][i%4]);
+      cyl('bottle',bx,yy+.315,zz,.022,.10,[0x3c6145,0x73553a,0x7c6b42,0x455c56][i%4]);
+      box('ceramic',bx+.057,yy+.15,zz,.005,.09,.085,0xd6c6a2);
+    }
+    for(const zz of[-1.92,-1.61,-1.30]){
+      cyl('brass',barX+.05,1.18,zz,.036,.37);
+      rod('brass',new T.Vector3(barX+.05,1.35,zz),new T.Vector3(barX+.28,1.35,zz),.032);
+      box('dark',barX+.24,1.48,zz,.08,.21,.07);
+    }
+    for(const zz of[1.72,1.98,2.24])cyl('glass',barX+.12,1.13,zz,.063,.18);
+    planeTexture('menu_board','GCB Küche','Pub-Burger|Flammkuchen|Pommes frites|Frischer Salat','#172b25','#dfd4b3',1.37,1.43,-hx+.25,2.12,2.75);
+    // Timber ceiling beams, pendants and frosted exterior lanterns.
+    for(const zz of[-2.8,0,2.8])box('timber',0,3.27,zz,w-.25,.18,.18,0xa58c65);
+    for(const zz of[-1.82,1.82]){
+      rod('dark',new T.Vector3(.1,3.31,zz),new T.Vector3(.1,2.85,zz),.012);
+      const cone=new T.ConeGeometry(.31,.25,16,1,true);add(buckets,'brass',cone,.1,2.80,zz);
+      ball('glow',.1,2.68,zz,.11,.09,.11);
+      const light=new T.PointLight(0xffc28a,15,6.9,2);light.name='gcb_warm_light';light.position.set(.1,2.54,zz);light.castShadow=false;root.add(light);lights.push(light);
+    }
+    for(const side of[-1,1]){
+      const zz=side*1.16;
+      box('dark',hx+.22,1.91,zz,.14,.32,.12);rod('dark',new T.Vector3(hx+.22,2.05,zz),new T.Vector3(hx+.49,2.05,zz),.025);
+      box('glow',hx+.46,1.87,zz,.24,.36,.24);
+      for(const dy of[-1,1])box('dark',hx+.46,1.87+dy*.21,zz,.32,.07,.32);
+      for(const dx of[-1,1])for(const dz of[-1,1])box('dark',hx+.46+dx*.13,1.87,zz+dz*.13,.025,.40,.025);
+      add(buckets,'dark',new T.ConeGeometry(.25,.18,4),hx+.46,2.17,zz,1,1,1,0xffffff,0,PI/4,0);
+    }
+    // A small welcome mat has flat edges, never a raised step.
+    box('dark',hx+.45,floorY+.004,0,.90,.008,1.55,0x62654e);
+    flush(buckets,root,'furnishing');
+
+    function food(id){
+      const group=new T.Group();group.name='gcb_order_'+id;group.position.set(barX,1.035,.25);group.visible=false;root.add(group);const b=new Map();
+      cyl('ceramic',0,.022,0,.31,.034,0xffffff,b);
+      add(b,'ceramic',new T.TorusGeometry(.279,.018,6,32),0,.042,0,1,1,1,0xffffff,PI/2,0,0);
+      if(id==='burger'){
+        ball('food',0,.10,0,.185,.060,.175,0xbd793a,b);cyl('food',0,.15,0,.17,.045,0x633924,b);
+        for(let i=0;i<7;i++){const a=i*PI/3.5;ball('food',Math.cos(a)*.13,.177,Math.sin(a)*.12,.078,.015,.058,0x4c7839,b);}
+        cyl('food',0,.199,0,.17,.018,0xb94f36,b);box('food',0,.215,0,.29,.018,.28,0xe5b84e,.18,b);
+        ball('food',0,.266,0,.19,.064,.18,0xd4934b,b);
+        for(let i=0;i<19;i++){const a=i*2.399,r=.15*Math.sqrt((i+.5)/19),sx=Math.cos(a)*r,sz=Math.sin(a)*r;ball('food',sx,.297+.026*(1-r/.15),sz,.009,.004,.004,0xead4a1,b);}
+      }else if(id==='flammkuchen'){
+        cyl('food',0,.059,0,.25,.036,0xbd8849,b);cyl('food',0,.082,0,.229,.012,0xe8d7ad,b);
+        for(let i=0;i<23;i++){const a=i*2.399,r=.205*Math.sqrt((i+.5)/23),sx=Math.cos(a)*r,sz=Math.sin(a)*r;
+          if(i%3)box('food',sx,.098,sz,.045,.023,.017,i%2?0xb77156:0xd2bc91,a,b);
+          else add(b,'food',new T.TorusGeometry(.028,.007,4,10),sx,.099,sz,1,1,1,0x80734d,PI/2,0,a);
+        }
+      }else if(id==='fries'){
+        for(let i=0;i<30;i++){const a=i*2.399,r=.18*Math.sqrt((i+.5)/30);box('food',Math.cos(a)*r,.06+(i%4)*.018,Math.sin(a)*r,.029,.029,.15+(i%3)*.025,i%4?0xd6aa4f:0xba8b38,a,b);}
+        ball('food',.22,.062,-.09,.052,.022,.058,0xaf3e2d,b);
+      }else{
+        cyl('ceramic',0,.05,0,.235,.055,0xf6f2df,b);
+        for(let i=0;i<23;i++){const a=i*2.399,r=.19*Math.sqrt((i+.5)/23);ball('food',Math.cos(a)*r,.10+(i%4)*.012,Math.sin(a)*r,.073,.029,.044,[0x6c8942,0x4b7138,0x859b4d][i%3],b);}
+        for(let i=0;i<6;i++){const a=i*PI/3;ball('food',Math.cos(a)*.15,.143,Math.sin(a)*.15,.037,.026,.037,0xc84e35,b);}
+        for(let i=0;i<4;i++){const a=i*1.8;add(b,'food',new T.CylinderGeometry(.043,.043,.015,12),Math.cos(a)*.12,.155,Math.sin(a)*.12,1,1,1,0x9bb66b,.10,0,a);}
+      }
+      flush(b,group,'dish_'+id);orders.set(id,group);return group;
+    }
+    for(const id of['burger','flammkuchen','fries','salad'])food(id);
+    cube.dispose();cylinder.dispose();sphere.dispose();
+    // Reuse the game's already retained rigged character assets.
+    function actor(px,pz,heading,spec,pose='standing'){
+      const anchor=new T.Group();anchor.name='gcb_'+(pose==='seated'?'guest':'waiter');anchor.position.set(px,floorY+(pose==='seated'?.30:0),pz);anchor.rotation.y=heading;root.add(anchor);
+      if(pose==='standing'){const apron=new T.Mesh(new T.BoxGeometry(.42,.55,.018),mats.dark);apron.name='gcb_waiter_apron';apron.position.set(0,.70,.17);anchor.add(apron);}
+      const person=window.People3D?.attach(anchor,spec);
+      if(person){person.setPose(pose);actors.push(person);}return person;
+    }
+    const waiter=actor(-2.53,1.65,PI/2,{sex:'male',height:1.76,shirt:0xe9e5d9,pants:0x29352c,hair:0x493d32,skin:0xffebdc,phase:.23});
+    const guest=actor(1.52,hz-.63,PI,{sex:'female',height:1.64,shirt:0x79764d,pants:0x333c3c,hair:0x614739,skin:0xffedd6,phase:.64},'seated');
+    const ready=Promise.allSettled(actors.map(a=>a.promise));
+    let lastOrder=null;
+    return {
+      root,blocks,contains(px,pz){return px>x-hx+.20&&px<x+hx-.20&&pz>z-hz+.20&&pz<z+hz-.20;},
+      floorY,entrance:{x:x+hx,z},interior:{x:x+.7,z},counter:{x:x-.3,z},
+      ready,
+      update(dt,time,viewerPosition){
+        if(disposed)return;
+        const near=!viewerPosition||Math.hypot(viewerPosition.x-x,viewerPosition.z-z)<19;
+        for(const light of lights)light.visible=near;
+        for(const a of actors)a.update(dt,0);
+      },
+      setOrder(item){
+        const id=item===null?null:typeof item==='string'?item:item?.id;
+        if(disposed)return false;
+        if(id!==null&&!orders.has(id))return false;
+        if(id===lastOrder)return true;
+        for(const [name,group]of orders)group.visible=name===id;
+        lastOrder=id;return true;
+      },
+      dispose(){if(disposed)return;disposed=true;for(const a of actors)a.dispose?.();for(const light of lights)light.visible=false;}
+    };
+  }
+  return {create};
+})();
+
+
+;
 /* Lindenhafen. Neutral daylight, physically shaded architectural shells, modelled in metres. */
 window.makeCity = function makeCity(T, scene) {
   let seed = 76103;
@@ -7449,6 +7725,7 @@ window.makeCity = function makeCity(T, scene) {
   const pick = a => a[Math.floor(rand()*a.length)];
   const PI=Math.PI, TAU=2*PI, blocks=[], dynamic=[];
   const root=new T.Group(); scene.add(root);
+  let pub=null;
   const roadX=[-80,-24,32,88], roadZ=[-84,-28,28,84];
   const targets=[{x:-88,z:-52},{x:24,z:-46},{x:77,z:54},{x:-31,z:54},{x:-31,z:-52}];
   const bounds={minX:-99,maxX:100,minZ:-100,maxZ:100};
@@ -7738,12 +8015,17 @@ window.makeCity = function makeCity(T, scene) {
   let shopNo=0;
   function shop(x,z,w,d,levels,theme,a,opts={}){
     const h=3.7+levels*3.04, col=new T.Color(facePalettes[theme][0]).getHex();
+    const isPub=!!(opts.pub&&window.GCBPub?.create);
     const trim=pick([0xd8d8cf,0xe2ded2,0xc9d4ce]),accent=opts.accent||pick([aqua,peach,orchid,gold]);
     const nx=Math.sin(a),nz=Math.cos(a),tx=Math.cos(a),tz=-Math.sin(a);
     const depth=(Math.abs(nx)>.5?w:d)/2, width=Math.abs(nx)>.5?d:w;
     const u=(along,out,y)=>[x+tx*along+nx*(depth+out),y,z+tz*along+nz*(depth+out)];
     const b=(along,out,y,sw,sh,sd,c,mat=clay)=>box(...u(along,out,y),sw,sh,sd,c,a,mat);
-    box(x,h/2,z,w-2.4,h,d-2.4,0x59625e);block(x,z,w,d);shadowShells.push([x,h/2,z,w,h,d]);
+    if(isPub){
+      // Keep the existing upper storey while the ground floor becomes a real room.
+      const upperBase=3.65,upperHeight=h-upperBase,upperY=(h+upperBase)/2;
+      box(x,upperY,z,w-2.4,upperHeight,d-2.4,0x59625e);shadowShells.push([x,upperY,z,w,upperHeight,d]);
+    }else{box(x,h/2,z,w-2.4,h,d-2.4,0x59625e);block(x,z,w,d);shadowShells.push([x,h/2,z,w,h,d]);}
     addFacades(x,z,w,d,3.65,h-3.65,theme);
     box(x,h-.08,z,w+.42,.35,d+.42,trim);
     box(x,h+.19,z,w+.68,.13,d+.68,0xaeb5b1);
@@ -7764,6 +8046,11 @@ window.makeCity = function makeCity(T, scene) {
       }
     }
     const title=opts.name||shopNames[shopNo++%shopNames.length];
+    if(isPub){
+      // Consume the same historical awning colour draw, without adding a fake shop front.
+      if(levels<4)pick([0xb46671,0x719d97,0xc3906e]);
+      pub=window.GCBPub.create(T,root,{x,z,w,d});blocks.push(...pub.blocks);return;
+    }
     const doorW=width*.19;
     b(0,-.98,1.48,width-.5,2.89,.04,0xffffff,roomMats[theme%4]);
     // Small shop interiors sit behind the glazing and in front of the recessed shell.
@@ -7828,7 +8115,7 @@ window.makeCity = function makeCity(T, scene) {
   for(const z of [-90,-15,33,83]){
     if(Math.abs(z+53)<17)continue;
     // Small kiosks leave a generous space for the waterfront promenade.
-    shop(-95,z,6.2,8,1,pick([0,1,2]),PI/2);
+    shop(-95,z,6.2,8,1,pick([0,1,2]),PI/2,{pub:z===-15});
   }
   for(const [i,z] of [-69,-36,-2,34,75].entries())shop(112,z,15,between(16,24),4+i%3,(i+2)%6,-PI/2);
   for(const sign of [-1,1])for(const [i,x] of [-52,-8,17,57,88].entries())shop(x,sign*109,between(14,22),15,2+i%3,(i+3)%6,sign===1?PI:0);
@@ -8434,8 +8721,8 @@ window.makeCity = function makeCity(T, scene) {
   }
   label('WOHNEN AM PARK','ABHOLZONE','#26484e','#ddfff0',7.2,.8,-37,3.6,54,Math.PI/2);
   label('REHA UFERBLICK','PATIENTENEMPFANG','#3b415b','#fff0cf',7.2,.8,-37,3.6,-52,Math.PI/2);
-  return {blocks,targets,spawn,carSpawn,bounds,parkedCars,pedestrians,
-    update(dt,time,viewerPosition){if(viewerPosition&&Number.isFinite(viewerPosition.x)&&Number.isFinite(viewerPosition.z)){observer.x=viewerPosition.x;observer.z=viewerPosition.z;}const t=Number.isFinite(time)?time:0;waterMat.uniforms.t.value=t;for(const f of dynamic)f(t);}
+  return {blocks,targets,spawn,carSpawn,bounds,parkedCars,pedestrians,pub,
+    update(dt,time,viewerPosition){if(viewerPosition&&Number.isFinite(viewerPosition.x)&&Number.isFinite(viewerPosition.z)){observer.x=viewerPosition.x;observer.z=viewerPosition.z;}const t=Number.isFinite(time)?time:0;waterMat.uniforms.t.value=t;for(const f of dynamic)f(t);pub?.update(dt,t,viewerPosition);}
   };
 };
 
@@ -9084,6 +9371,8 @@ window.Drive = (() => {
   const drawStats={mainCalls:0,shadowCalls:0,skinMainCalls:0,skinShadowCalls:0,mainTriangles:0,shadowTriangles:0,skinMainTriangles:0,skinShadowTriangles:0,physicsCpuMs:0,actorsCpuMs:0,renderCpuMs:0,telemetryCpuMs:0};
   let mission=null,target=null,patient=null,passengerPresent=false,delivered=false,collisionCount=0,travelDistance=0,lastCollision=-10,onAction=null,lastInfo=null,firstPerson=false;
   let traffic=null,pendingExit=null,pendingEnter=null,walkRunTime=0;const trafficBlockers=[];
+  let pubCameraBlend=0,pubOrder=null;
+  const pubFoodIds=new Set(['burger','flammkuchen','fries','salad']);
   const FLEET=[
     {id:'taxi',type:'taxi',name:'Taxi Lindenhafen',position:[-82.5,12.6,0,0xd9b557]},
     {id:'volunteer',type:'volunteer',name:'Freiwilliger Fahrdienst',position:[-75,-39,0,0x5d9b91]},
@@ -9443,11 +9732,14 @@ window.Drive = (() => {
     const az=[-84,-28,28,84].reduce((a,b)=>Math.abs(a-p.z)<Math.abs(b-p.z)?a:b);
     return Math.abs(ax-p.x)<Math.abs(az-p.z)?{x:ax+1.6,z:p.z}:{x:p.x,z:az+1.6};
   }
-  function groundHeight(x,z){return [-80,-24,32,88].some(a=>Math.abs(a-x)<6)||[-84,-28,28,84].some(a=>Math.abs(a-z)<6)?-.09:-.17;}
-  function clearAt(x,z,r){
+  function inPub(x,z){return !!city?.pub?.contains(x,z);}
+  function nearPubCounter(){const p=pieces?.char?.position,q=city?.pub?.counter;return mode==='walk'&&p&&q&&inPub(p.x,p.z)&&Math.hypot(p.x-q.x,p.z-q.z)<1.7;}
+  function groundHeight(x,z){if(inPub(x,z))return city.pub.floorY??-.17;return [-80,-24,32,88].some(a=>Math.abs(a-x)<6)||[-84,-28,28,84].some(a=>Math.abs(a-z)<6)?-.09:-.17;}
+  function clearAt(x,z,r,cameraProbe=false){
     const b=city.bounds;
     if(x<b.minX+r||x>b.maxX-r||z<b.minZ+r||z>b.maxZ-r)return false;
     for(const wall of city.blocks){
+      if(cameraProbe&&wall.cameraBlocking===false)continue;
       const dx=x-clamp(x,wall.minX,wall.maxX), dz=z-clamp(z,wall.minZ,wall.maxZ);
       if(dx*dx+dz*dz<r*r)return false;
     }
@@ -9543,13 +9835,14 @@ window.Drive = (() => {
     if(!pieces)return null;const p=(mode==='walk'?pieces.char:pieces.vehicle).position,n=mode==='walk'?closestCar():null;
     if(target?.id){const v=fleet.find(v=>v.id===target.id)||traffic?.getVehicles?.().find(v=>v.id===target.id);if(v){target.x=v.root?v.root.position.x:v.x;target.z=v.root?v.root.position.z:v.z;}}
     const point=car.root.position,pickupDistance=mission?Math.hypot(point.x-mission.pickup.x,point.z-mission.pickup.z):Infinity,dropoffDistance=mission?Math.hypot(point.x-mission.dropoff.x,point.z-mission.dropoff.z):Infinity;
-    const info={exitPending:!!pendingExit,enterPending:!!pendingEnter,autoRunning:mode==='walk'&&walkRunTime>=2,stationary:Math.abs(velocity)<.02,mode,x:p.x,z:p.z,heading:mode==='walk'?characterHeading:vehicleHeading,viewHeading:Number.isFinite(viewHeading)?viewHeading:wrap((mode==='walk'?characterHeading:vehicleHeading)+orbit),speed:Math.round(Math.abs(mode==='car'?velocity:footSpeed)*3.6),vehicleId:car.id,vehicleType:car.type,vehicleName:car.spec.name,vehicleKind:car.kind||'car',civilVehicle:!!car.civil,nearVehicle:n?{id:n.id,type:n.type,name:n.spec?.name||n.name,kind:n.kind||'car',civil:!!n.civil,traffic:!!n.traffic,speed:n.speed||0}:null,nearPatient:!!closestPerson(),nearCitizen:closestCitizen(),pickupDistance,dropoffDistance,passengerPresent,delivered,atTarget:!!target&&targetDistance()<(mode==='car'?12:3.8),distance:targetDistance(),targetX:target?.x,targetZ:target?.z,targetId:target?.id,cars:fleet.filter(f=>!f.civil).map(f=>({id:f.id,type:f.type,name:f.spec.name,x:f.root.position.x,z:f.root.position.z})),mobility:fleet.filter(f=>f.civil).map(f=>({id:f.id,type:f.type,kind:f.kind,civil:true,name:f.spec.name,x:f.root.position.x,z:f.root.position.z})).concat(traffic?.getVehicles?.()||[]),roads:{x:[-80,-24,32,88],z:[-84,-28,28,84]},collisionCount,travelDistance,firstPerson:mode==='car'&&firstPerson,missionId:mission?.id};info.guidance=navigation?.getGuidance(info,target);info.performance=getPerformance();return info;
+    const info={exitPending:!!pendingExit,enterPending:!!pendingEnter,autoRunning:mode==='walk'&&!inPub(p.x,p.z)&&walkRunTime>=2,stationary:Math.abs(velocity)<.02,mode,x:p.x,z:p.z,heading:mode==='walk'?characterHeading:vehicleHeading,viewHeading:Number.isFinite(viewHeading)?viewHeading:wrap((mode==='walk'?characterHeading:vehicleHeading)+orbit),speed:Math.round(Math.abs(mode==='car'?velocity:footSpeed)*3.6),vehicleId:car.id,vehicleType:car.type,vehicleName:car.spec.name,vehicleKind:car.kind||'car',civilVehicle:!!car.civil,nearVehicle:n?{id:n.id,type:n.type,name:n.spec?.name||n.name,kind:n.kind||'car',civil:!!n.civil,traffic:!!n.traffic,speed:n.speed||0}:null,nearPatient:!!closestPerson(),nearCitizen:closestCitizen(),pickupDistance,dropoffDistance,passengerPresent,delivered,atTarget:!!target&&targetDistance()<(mode==='car'?12:3.8),distance:targetDistance(),targetX:target?.x,targetZ:target?.z,targetId:target?.id,cars:fleet.filter(f=>!f.civil).map(f=>({id:f.id,type:f.type,name:f.spec.name,x:f.root.position.x,z:f.root.position.z})),mobility:fleet.filter(f=>f.civil).map(f=>({id:f.id,type:f.type,kind:f.kind,civil:true,name:f.spec.name,x:f.root.position.x,z:f.root.position.z})).concat(traffic?.getVehicles?.()||[]),roads:{x:[-80,-24,32,88],z:[-84,-28,28,84]},collisionCount,travelDistance,firstPerson:mode==='car'&&firstPerson,missionId:mission?.id,pubLocation:inPub(p.x,p.z)?'inside':'outside',nearPubCounter:!!nearPubCounter(),pubOrderState:pubOrder?.state||'idle',pubOrderItem:pubOrder?.item||null};info.guidance=navigation?.getGuidance(info,target);info.performance=getPerformance();return info;
   }
 
   function broadcast(){lastInfo=getInfo();navigation?.update(lastInfo,target);report?.(lastInfo);}
 
   function interact(){
     if(mode==='walk'&&closestPerson()){onAction?.({kind:'patient'});return;}
+    if(nearPubCounter()){onAction?.({kind:'pub-order'});return;}
     const i=getInfo();if(mission&&passengerPresent&&i.dropoffDistance<12&&Math.abs(velocity)<.02){onAction?.({kind:'destination'});return;}
     if(mission&&!passengerPresent&&!delivered&&mode==='car'&&i.pickupDistance<12&&Math.abs(velocity)<.02){onAction?.({kind:'patient'});return;}
     if(mode==='walk'){const v=closestCar();if(v)onAction?.({kind:'vehicle',vehicleId:v.id,type:v.type});}
@@ -9574,12 +9867,13 @@ window.Drive = (() => {
     return frameControls;
   }
   function stepPerson(dt){
-    const {turn,gas,brake}=controls(dt),forward=Number(gas)-Number(brake),running=keys.sprint||walkRunTime>=2,turnRate=turn*(running?2.65:2.32);
+    const indoor=inPub(pieces.char.position.x,pieces.char.position.z);
+    const {turn,gas,brake}=controls(dt),forward=Number(gas)-Number(brake),running=!indoor&&(keys.sprint||walkRunTime>=2),turnRate=turn*(running?2.65:2.32);
     characterHeading=wrap(characterHeading+turnRate*dt);
     // Keep the V7 recenter guard alive while the damped follow-camera settles.
     walkingTurnVelocity=turnRate||walkingTurnVelocity*(1-smooth(dt,11));
     if(!turn&&Math.abs(walkingTurnVelocity)<.005)walkingTurnVelocity=0;
-    const targetSpeed=forward*(forward<0?1.45:running?5.55:2.23);
+    const targetSpeed=forward*(forward<0?1.45:running?5.55:indoor?1.65:2.23);
     footSpeed+=(targetSpeed-footSpeed)*smooth(dt,forward?7.5:11);
     if(!forward&&Math.abs(footSpeed)<.015)footSpeed=0;
     const p=pieces.char.position,nx=p.x+Math.sin(characterHeading)*footSpeed*dt,nz=p.z-Math.cos(characterHeading)*footSpeed*dt;
@@ -9591,7 +9885,7 @@ window.Drive = (() => {
     walkVelocityX=dt>0?(p.x-fromX)/dt:0;walkVelocityZ=dt>0?(p.z-fromZ)/dt:0;
     walkingTravelSpeed=dt>0?Math.sign(footSpeed)*Math.hypot(p.x-fromX,p.z-fromZ)/dt:0;
     const movedForward=dt>0?((p.x-fromX)*Math.sin(characterHeading)-(p.z-fromZ)*Math.cos(characterHeading))/dt:0;
-    walkRunTime=forward>0&&movedForward>.35?walkRunTime+dt:0;
+    walkRunTime=!indoor&&forward>0&&movedForward>.35?walkRunTime+dt:0;
     pieces.char.rotation.y=-characterHeading;p.y+=(groundHeight(p.x,p.z)-p.y)*smooth(dt,22);
     movedThisFrame ||= Math.hypot(p.x-fromX,p.z-fromZ)>.0001;
   }
@@ -9632,6 +9926,10 @@ window.Drive = (() => {
   }
   function cameraStep(dt,renderHeading){
     const driving=mode==="car",base=(driving?pieces.vehicle:pieces.char).position,heading=renderHeading??(driving?vehicleHeading:characterHeading);
+    const pubView=!driving&&inPub(base.x,base.z)?1:0;
+    pubCameraBlend=dt>0?pubCameraBlend+(pubView-pubCameraBlend)*smooth(dt,8):pubView;
+    if(Math.abs(pubCameraBlend-pubView)<.0005)pubCameraBlend=pubView;
+    const desiredFov=54+8*pubCameraBlend;if(Math.abs(camera.fov-desiredFov)>.02||pubCameraBlend===pubView&&camera.fov!==desiredFov){camera.fov=desiredFov;camera.updateProjectionMatrix();}
     idleOrbit=Math.max(0,idleOrbit-dt);
     // Explicit keyboard turns own camera yaw, including their smoothed run-out.
     // Recentring a large opposite mouse offset here would reverse the requested turn.
@@ -9645,19 +9943,19 @@ window.Drive = (() => {
     const targetYaw=wrap(heading+orbit);
     if(!Number.isFinite(cameraYaw)||drag)cameraYaw=targetYaw;
     else if(dt>0)cameraYaw=wrap(cameraYaw+wrap(targetYaw-cameraYaw)*smooth(dt,driving?14:11));
-    const scooting=driving&&car.kind==='scooter',yaw=cameraYaw,dist=driving&&!scooting?5.95+Math.abs(velocity)*.065:4.35,lookY=base.y+(driving&&!scooting?1.04:1.40);
+    const scooting=driving&&car.kind==='scooter',yaw=cameraYaw,dist=driving&&!scooting?5.95+Math.abs(velocity)*.065:4.35-pubCameraBlend*2,lookY=base.y+(driving&&!scooting?1.04:1.40);
     let arm=dist,lastFree=0;
     const rayX=-Math.sin(yaw)*Math.cos(pitch),rayZ=Math.cos(yaw)*Math.cos(pitch);
     // Keep the last actually free camera point; a minimum boom length can put
     // the camera through a nearby wall even though the avatar itself is clear.
     for(let s=.14;s<dist+.28;s+=.28){
       const probe=Math.min(s,dist);
-      if(!clearAt(base.x+rayX*probe,base.z+rayZ*probe,.15)){arm=lastFree;break;}
+      if(!clearAt(base.x+rayX*probe,base.z+rayZ*probe,.15,true)){arm=lastFree;break;}
       lastFree=probe;if(probe===dist)break;
     }
     if(cameraArm>0&&arm>cameraArm)cameraArm=dt>0?cameraArm+(arm-cameraArm)*smooth(dt,8):cameraArm;else cameraArm=arm;
     // A smoothed point can differ from the ray samples after a camera turn.
-    while(cameraArm>0&&!clearAt(base.x+rayX*cameraArm,base.z+rayZ*cameraArm,.15))cameraArm=Math.max(0,cameraArm-.1);
+    while(cameraArm>0&&!clearAt(base.x+rayX*cameraArm,base.z+rayZ*cameraArm,.15,true))cameraArm=Math.max(0,cameraArm-.1);
     arm=cameraArm;
     let eyeY=lookY+Math.sin(pitch)*arm+(driving?.48:.16),aimY=lookY+.08;
     if(!driving&&arm<1.8){
@@ -9681,6 +9979,7 @@ window.Drive = (() => {
         eyeY+=(Math.max(eyeY,closeEye)-eyeY)*blend;aimY+=(closeAim-aimY)*blend;
       }
     }
+    if(pubView)eyeY=Math.min(eyeY,(city.pub.floorY??-.17)+2.85);
     camera.position.set(base.x-Math.sin(yaw)*arm*Math.cos(pitch),eyeY,base.z+Math.cos(yaw)*arm*Math.cos(pitch));
     camera.lookAt(base.x+Math.sin(yaw)*.88,aimY,base.z-Math.cos(yaw)*.88);camera.getWorldDirection(cameraForward);viewHeading=Math.atan2(cameraForward.x,-cameraForward.z);
   }
@@ -9707,6 +10006,7 @@ window.Drive = (() => {
     let root=mode==='car'?pieces.vehicle:pieces.char;if(!previousPose)syncPose();
     while(accumulator+1e-10>=FIXED_STEP){previousPose.x=root.position.x;previousPose.y=root.position.y;previousPose.z=root.position.z;previousPose.heading=mode==='car'?vehicleHeading:characterHeading;if(mode==='walk')stepPerson(FIXED_STEP);else stepCar(FIXED_STEP);updateTraffic(FIXED_STEP);clock+=FIXED_STEP;accumulator-=FIXED_STEP;}
     processRequests();root=mode==='car'?pieces.vehicle:pieces.char;
+    if(pubOrder?.state==='preparing'&&clock>=pubOrder.readyAt){city.pub?.setOrder(pubOrder.item);pubOrder.state='served';broadcast();}
     if(diagnosticFrames)drawStats.physicsCpuMs=performance.now()-cpuStart;const actorStart=diagnosticFrames?performance.now():0;
     const now=clock+accumulator;city.update?.(dt,now,root.position);if(mode==='walk')animatePerson(dt);patient?.actor.update(dt,0);patient?.teamActor?.update(dt,0);
     if(diagnosticFrames)drawStats.actorsCpuMs=performance.now()-actorStart;
@@ -9739,7 +10039,7 @@ window.Drive = (() => {
     for(const r of [...geometries,...materials,...textures])r.dispose?.();patient=null;
   }
   async function ready(){
-    if(!renderer)return;const current=renderer;const tasks=[person?.actor?.promise,patient?.actor?.promise,patient?.teamActor?.promise,...(city?.pedestrians||[]).map(n=>n.actor?.promise),...fleet.map(v=>v.ready||v.root.userData.readyPromise)].filter(Boolean);await Promise.allSettled(tasks);await window.cityTextureReady?.();if(renderer!==current)return;
+    if(!renderer)return;const current=renderer;const tasks=[city?.pub?.ready,person?.actor?.promise,patient?.actor?.promise,patient?.teamActor?.promise,...(city?.pedestrians||[]).map(n=>n.actor?.promise),...fleet.map(v=>v.ready||v.root.userData.readyPromise)].filter(Boolean);await Promise.allSettled(tasks);await window.cityTextureReady?.();if(renderer!==current)return;
     updateShadow();
     if(probeTarget&&!environmentReady){
       // A gameplay target is not part of the waterfront and must not tint paint or glass green.
@@ -9751,7 +10051,7 @@ window.Drive = (() => {
     installDrawDiagnostics();if(renderer.isWebGLRenderer&&renderer.compileAsync)await renderer.compileAsync(scene,camera);renderer.render(scene,camera);perf?.reset();
   }
   function reset(){
-    stop();navigation?.dispose();navigation=null;traffic?.dispose();traffic=null;trafficBlockers.length=0;if(!renderer)return;disposePatient();person?.actor?.dispose?.();for(const npc of(city?.pedestrians||[]))npc.actor?.dispose?.();
+    stop();pubOrder=null;pubCameraBlend=0;navigation?.dispose();navigation=null;traffic?.dispose();traffic=null;trafficBlockers.length=0;if(!renderer)return;disposePatient();city?.pub?.dispose?.();person?.actor?.dispose?.();for(const npc of(city?.pedestrians||[]))npc.actor?.dispose?.();
     sizeObserver?.disconnect();sizeObserver=null;
     for(const [event,fn] of [["pointerdown",pointerDown],["pointermove",pointerMove],["pointerup",pointerEnd],["pointercancel",pointerEnd],["lostpointercapture",pointerEnd],["webglcontextlost",handleLoss]])canvas.removeEventListener(event,fn);
     const geometries=new Set(),materials=new Set(),textures=new Set();
@@ -9770,8 +10070,13 @@ window.Drive = (() => {
   }
   function resume(){if(!renderer)return;pause();active=true;perf?.setActive(true);last=null;reportTime=clock;syncPose();cameraStep(0);broadcast();raf=requestAnimationFrame(tick);}
   function setTarget(value){target=value?{...value}:null;if(marker){marker.root.visible=!!target;if(target)marker.root.position.set(target.x,0,target.z);}broadcast();}
+  function clearMission(){
+    if(!renderer)return false;
+    pause();disposePatient();mission=target=null;passengerPresent=delivered=false;collisionCount=travelDistance=0;lastCollision=-10;pubOrder=null;city.pub?.setOrder(null);perf?.reset();
+    place();setTarget(null);cameraStep(0);updateShadow();renderer.render(scene,camera);broadcast();return true;
+  }
   function setMission(value){
-    pause();disposePatient();perf?.reset();
+    pause();disposePatient();pubOrder=null;city.pub?.setOrder(null);perf?.reset();
     mission=value;passengerPresent=delivered=false;collisionCount=travelDistance=0;place();patient=makePatient(value.patient);patient.root.position.set(value.pickup.x,groundHeight(value.pickup.x,value.pickup.z),value.pickup.z);patient.root.rotation.y=Math.PI/2;setTarget(value.pickup);cameraStep(0);renderer.render(scene,camera);broadcast();
   }
   function loadPatient(){
@@ -9789,7 +10094,17 @@ window.Drive = (() => {
     passengerPresent=false;delivered=true;setTarget(null);cameraStep(0);updateShadow();renderer.render(scene,camera);broadcast();return true;
   }
 
-  return {init,resume,pause,stop,input,resize,reset,portrait,getPerformance,setQuality,ready,setMission,setTarget,enterVehicle,requestEnter,exitVehicle,requestExit,loadPatient,unloadPatient,getInfo};
+  function previewPubView(view){
+    if(window.GCB_PUB_DRAFT!==true||!city?.pub||mission||mode!=='walk'||!['outside','inside'].includes(view))return false;
+    const q=view==='inside'?city.pub.interior:{x:city.pub.entrance.x+2.1,z:city.pub.entrance.z};
+    if(!clearAt(q.x,q.z,.32)||!clearOfCars(q.x,q.z,.29))return false;
+    pause();cancelRequests();walkRunTime=0;velocity=wheelSteer=gait=orbit=0;pitch=.16;characterHeading=-Math.PI/2;pieces.char.position.set(q.x,groundHeight(q.x,q.z),q.z);pieces.char.rotation.set(0,-characterHeading,0);pieces.char.visible=true;person.footShadow.visible=true;person.actor.setPose('standing');resetCameraRig(characterHeading);syncPose();cameraStep(0);updateShadow();renderer.render(scene,camera);broadcast();return true;
+  }
+  function orderPubFood(item){
+    if(!renderer||!pubFoodIds.has(item)||!nearPubCounter()||pubOrder?.state==='preparing')return false;
+    city.pub.setOrder(null);pubOrder={item,state:'preparing',readyAt:clock+1.5};broadcast();return true;
+  }
+  return {init,resume,pause,stop,input,resize,reset,portrait,getPerformance,setQuality,ready,setMission,clearMission,setTarget,enterVehicle,requestEnter,exitVehicle,requestExit,loadPatient,unloadPatient,getInfo,previewPubView,orderPubFood};
 })();
 
 ;
@@ -11001,6 +11316,8 @@ const $=s=>document.querySelector(s), D=window.H3_DATA, R=window.H3Rules, A=wind
 const esc=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 const modal=$('#modal'),body=$('#dialogBody');let selected=0,m=D.missions[0],s=null,t=null,running=false,readyWorld=false,target=null,noticeTimer,engineAudio=null,loading=false,loadToken=0,lastCitizen=null,chatCitizen=null,currentChat=null;
 let completed={},settings={quality:'auto',effects:true,effectsVolume:.55,sound:true,music:true,musicVolume:.28,speechVolume:.9,audioVersion:0,tutorial:false};try{completed=JSON.parse(localStorage.getItem('h3-city-completed')||'{}');settings={...settings,...JSON.parse(localStorage.getItem('h3-city-settings')||'{}')}}catch{}
+const BONUS_KEY='h3-city-bonus-pub';let bonusActive=false,bonusReached=false,bonusRecord=null;
+try{const record=JSON.parse(localStorage.getItem(BONUS_KEY)||'null');if(record?.id==='gcb-pub'&&typeof record.finished==='string')bonusRecord=record}catch{}
 if(settings.audioVersion!==3){settings={...settings,sound:true,music:true,musicVolume:.28,speechVolume:.9,audioVersion:3};}A?.setSpeech(settings.sound);A?.setMusic(settings.music);A?.setMusicVolume(settings.musicVolume);A?.setSpeechVolume(settings.speechVolume);A?.setEffects?.(settings.effects);A?.setEffectsVolume?.(settings.effectsVolume);
 let voice=null,spokenKey=null;function store(){try{localStorage.setItem('h3-city-completed',JSON.stringify(completed));localStorage.setItem('h3-city-settings',JSON.stringify(settings))}catch{}}
 function toast(text){$('#toast').textContent=text;$('#toast').classList.add('show');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('#toast').classList.remove('show'),5200)}
@@ -11026,20 +11343,83 @@ function dialogKeyboard(e){
 function closePanel(){if(loading)return;A?.setScenePaused?.(false);stopVoice();modal.close();if(running&&!s?.finished){Drive.resume();A?.resumeMusic()}}
 function button(label,action,id='',cls='primary'){return `<button type="button" class="${cls}" data-action="${action}" data-id="${esc(id)}">${label}</button>`}
 function bind(){body.querySelectorAll('[data-action]').forEach(el=>el.onclick=()=>act(el.dataset.action,el.dataset.id))}
-function act(a,id){if(a==='close')closePanel();if(a==='chatmore')citizenPanel(chatCitizen);if(a==='chatreplay'&&currentChat){if(!settings.sound)setSound();A?.speak(currentChat.key,currentChat.text,{sex:currentChat.sex})};if(a==='rebrief')missionBrief();if(a==='begin')begin(+id);if(a==='ask')ask(id);if(a==='pack')packPanel();if(a==='prepare')prepare();if(a==='vehicle')vehiclePanel(id);if(a==='approve')approveVehicle(id);if(a==='enter')enter(id);if(a==='exit')exit();if(a==='board')board();if(a==='handover')handover();if(a==='finish')finish();if(a==='journal')journal();if(a==='map')mapPanel();if(a==='navvehicle')navVehicle(id);if(a==='navpickup'){navigate(m.pickup);closePanel();toast('Abholort ist markiert.')}if(a==='next'){closePanel();begin(Math.min(D.missions.length-1,selected+1))}if(a==='home')home();if(a==='export')exportReport();if(a==='sources')sources();if(a==='replay'){if(!settings.sound)setSound();const q=m.dialogue.find(q=>q.id===id);speak(id,q?.answer||m.patient.quote)}}
-function renderCards(){$('#missionCards').innerHTML=D.missions.map((c,i)=>`<button class="missionCard ${i===selected?'selected':''}" data-mission="${i}"><span class="number">MISSION ${i+1}</span><h3>${esc(c.title)}</h3><p>${esc(c.patient.name)} · ${c.patient.age} Jahre<br>${esc(c.subtitle)}</p>${completed[c.id]?'<span class="finished">✓ Abgeschlossen</span>':''}</button>`).join('');document.querySelectorAll('[data-mission]').forEach(b=>b.onclick=()=>{selected=+b.dataset.mission;renderCards()});$('#totalProgress').textContent=`${D.missions.filter(c=>completed[c.id]).length} von 5 abgeschlossen`}
-function tutorial(start=false){panel('SO SPIELST DU','Deine erste Transportmission',`<p>Du begleitest eine Person vom Auftrag bis zur Übergabe. Lies zuerst ihren Bedarf – dann suchst du das passende Fahrzeug in der Stadt.</p><div class="grid"><div class="card"><span class="introIcon">☏</span><h3>Gespräch und Vorbereitung</h3><p>Folge dem leuchtenden Abholpunkt. Drücke Enter bei der Person, stelle die drei Fragen und bereite die nötigen Dinge vor.</p></div><div class="card"><span class="introIcon">▰</span><h3>Fahrzeug finden</h3><p>Der Richtungspfeil oben zeigt den Weg zum aktuellen Ziel, daneben siehst du die Entfernung. Unten links siehst du die Karte mit allen fünf Fahrzeugen. M öffnet die Karte mit fünf Fahrzeugstandorten und ihren Namen. Gehe zu einem Wagen, prüfe sein Angebot mit Enter und steige ein.</p></div><div class="card"><span class="introIcon">⌖</span><h3>Abholen und fahren</h3><p>Fahre zurück zur Abholzone und halte an. Übernimm die Person mit Enter. Folge danach der Route zum Ziel.</p></div><div class="card"><span class="introIcon">✓</span><h3>Persönlich übergeben</h3><p>Am Ziel parkieren, mit F aussteigen und mit Enter die Übergabe prüfen. Fehler kannst du verbessern.</p></div></div><div class="info"><strong>Steuerung</strong><p>Pfeiltasten: ←/→ drehen Figur und Kamera, ↑ geht vorwärts, ↓ rückwärts. Drehen geht auch im Stand. Im Fahrzeug: lenken, Gas und Bremse. Enter: die angezeigte Aktion ausführen oder eine Schaltfläche bestätigen. In Dialogen wählst du Schaltflächen mit ↑/↓; Tab wechselt zu Auswahlfeldern, Leertaste wählt Kästchen an oder ab. Nach zwei Sekunden Vorwärtsgehen rennst du automatisch. Shift: sofort sprinten. Maus halten und ziehen: kurz umschauen; danach folgt die Kamera beim Weitergehen wieder der Figur. F: einmal drücken – anhalten und aussteigen. M: Karte. J: Auftrag. Esc: Pause. Zu Fuss: sichtbare Spielfigur. Im Auto: Aussenansicht von hinten. C richtet die Kamera wieder hinter dem Wagen aus. Auf der Karte findest du auch frei nutzbare Stadtwagen und E-Scooter für eigene Wege. Auf dem Scooter bleibt deine Figur sichtbar; Einmal F hält an und lässt dich absteigen. Patientinnen und Patienten fahren mit dem geprüften Transportangebot.</p></div><p class="small">Die Fahrsteuerung ist eine Spielabstraktion. Im Berufsalltag fahren entsprechend berechtigte Personen. Pflege, Verladung und Sicherung erfordern den vereinbarten Auftrag und die nötige Qualifikation. Beim Rettungswagen ist das qualifizierte Team an Bord. Geschwindigkeit gibt keine Lernpunkte.</p><div class="actions">${button(start?'Mission beginnen':'Verstanden',start?'begin':'close',String(selected))}</div>`);settings.tutorial=true;store()}
-async function begin(index){if(loading)return;loading=true;const token=++loadToken;lastCitizen=chatCitizen=currentChat=null;await A?.unlock();if(token!==loadToken)return;A?.pauseMusic();stopVoice();selected=index;m=D.missions[index];s=R.newState(m.id);t=null;target=m.pickup;Drive.pause?.();panel('EINEN MOMENT','Deine Stadt wird vorbereitet.',`<p>Fahrzeuge und Figuren werden geladen. Danach kannst du die Mission ohne nachträglich aufploppende Modelle beginnen.</p><p role="status" id="loadingStatus">Fahrzeuge werden vorbereitet …</p>`);$('#closeDialog').hidden=true;await new Promise(requestAnimationFrame);try{await window.H3Vehicles?.preload?.();if(token!==loadToken)return;$('#loadingStatus').textContent='Die Stadt wird vorbereitet …';running=true;$('#home').hidden=true;$('#game').hidden=false;document.body.classList.add('playing');['journalBtn','mapBtn','pauseBtn'].forEach(id=>$('#'+id).hidden=false);Drive.init($('#city'),telemetry,onWorldAction);readyWorld=true;Drive.setQuality?.(settings.quality||'auto');Drive.setMission({id:m.id,pickup:m.pickup,dropoff:m.dropoff,patient:m.patient,vehicleType:m.vehicleType});$('#loadingStatus').textContent='Gleich geht es los …';await Drive.ready?.();if(token!==loadToken)return;Drive.setTarget(m.pickup);Drive.resize();loading=false;$('#closeDialog').hidden=false;modal.close();Drive.resume();A?.resumeMusic();update();missionBrief()}catch(e){if(token!==loadToken)return;running=false;loading=false;$('#closeDialog').hidden=false;panel('GRAFIKSTART','Die Stadt konnte nicht starten',`<p>${esc(e.message)}</p><p>Bitte einen aktuellen Desktop-Browser mit aktivierter Grafikbeschleunigung verwenden.</p><div class="actions">${button('Erneut versuchen','begin',String(index))}${button('Zur Missionsauswahl','home','','secondary')}</div>`);console.error(e)}}
+function act(a,id){if(a==='beginbonus')return beginBonus();if(a==='bonusjournal'){if(bonusActive)bonusJournal();return;}if(a==='bonuscontinue'){if(bonusActive)closePanel();return;}if(bonusActive&&['ask','pack','prepare','approve','board','handover','finish','export','sources','replay','rebrief','navpickup','navdrop'].includes(a)){bonusJournal();return;}if(a==='navpub'){if(!running||!bonusUnlocked())return;navigate({...pubPlace});closePanel();toast('GCB Pub ist vor dem Eingang markiert.');return;}if(a==='pubfood'){orderPubMeal(id);return;}if(a==='close')closePanel();if(a==='chatmore')citizenPanel(chatCitizen);if(a==='chatreplay'&&currentChat){if(!settings.sound)setSound();A?.speak(currentChat.key,currentChat.text,{sex:currentChat.sex})};if(a==='rebrief')missionBrief();if(a==='begin')begin(+id);if(a==='ask')ask(id);if(a==='pack')packPanel();if(a==='prepare')prepare();if(a==='vehicle')vehiclePanel(id);if(a==='approve')approveVehicle(id);if(a==='enter')enter(id);if(a==='exit')exit();if(a==='board')board();if(a==='handover')handover();if(a==='finish')finish();if(a==='journal')journal();if(a==='map')mapPanel();if(a==='navvehicle')navVehicle(id);if(a==='navpickup'){navigate(m.pickup);closePanel();toast('Abholort ist markiert.')}if(a==='next'){closePanel();begin(Math.min(D.missions.length-1,selected+1))}if(a==='home')home();if(a==='export')exportReport();if(a==='sources')sources();if(a==='replay'){if(!settings.sound)setSound();const q=m.dialogue.find(q=>q.id===id);speak(id,q?.answer||m.patient.quote)}}
+
+const pubPlace={x:-90.4,z:-15,label:'GCB Pub'};
+const pubMeals=[
+ {id:'burger',name:'Pub-Burger',description:'Im Brioche-Bun mit knackigem Salat.'},
+ {id:'flammkuchen',name:'Flammkuchen',description:'Knusprig und frisch aus dem Ofen.'},
+ {id:'fries',name:'Pommes',description:'Goldbraun gebacken, mit einem Dip.'},
+ {id:'salad',name:'Salatteller',description:'Bunter Blattsalat mit frischem Gemüse.'}
+];
+function pubPanel(){
+ if(!t?.nearPubCounter){toast('Komm zum Tresen im GCB Pub.');return;}
+ const pending=t.pubOrderState==='preparing';
+ panel('GCB PUB','Was darf’s sein?',`<div class="quote">Kellner: «${pending?'Deine Bestellung wird gerade frisch zubereitet.':'Schön, dass du da bist. Such dir etwas aus!'}»</div>${pending?'':`<div class="vehicleList">${pubMeals.map(q=>`<button type="button" data-action="pubfood" data-id="${q.id}"><strong>${q.name}</strong><small>${q.description}</small></button>`).join('')}</div>`}<p class="small">Dein Gericht wird direkt auf dem Tresen serviert. Mit den Pfeiltasten auswählen und mit Enter bestellen.</p><div class="actions">${button('Zurück ins Pub','close','','secondary')}</div>`);
+}
+function orderPubMeal(id){
+ const meal=pubMeals.find(q=>q.id===id);if(!meal)return;
+ if(!Drive.orderPubFood?.(id)){toast('Komm zum Tresen oder warte kurz auf deine laufende Bestellung.');return;}
+ closePanel();toast('Kellner: «Sehr gern! '+meal.name+' kommt gleich.»');
+}
+
+function bonusUnlocked(){return D.missions.every(c=>!!completed?.[c.id]);}
+function bonusHelp(){return bonusUnlocked()?'<p class="small">Zusatzmission 6 ist freigeschaltet: Öffne die Karte mit M und wähle «GCB Pub finden». Am Tresen kannst du beim Kellner etwas bestellen.</p>':'';}
+function bonusJournal(){
+ if(!bonusActive)return;
+ panel('ZUSATZMISSION 6',bonusReached?'GCB Pub gefunden':'Finde das GCB Pub',`<div class="info"><strong>${bonusReached?'Geschafft!':'Dein Zusatzauftrag'}</strong><p>${bonusReached?'Du hast das Pub am Quai betreten. Jetzt kannst du dich frei umschauen und beim Kellner etwas bestellen.':'Finde das GCB Pub am Quai und tritt ein. Die Karte hilft dir auf dem Weg. Du startest am gewohnten Ort in Lindenhafen.'}</p></div><p class="small">Eine zusätzliche Entdeckung nach deinen fünf Transportmissionen.</p><div class="actions">${button(bonusReached?'Weiter erkunden':'Losgehen','bonuscontinue')}${button('Karte öffnen','map','','secondary')}${button('Transportauswahl','home','','secondary')}</div>`);
+}
+function bonusContextLabel(){
+ if(t.exitPending)return 'Wird angehalten …';if(t.enterPending)return 'Wagen hält an …';
+ if(t.nearPubCounter)return t.pubOrderState==='preparing'?'Dein Gericht wird zubereitet …':'Beim Kellner bestellen';
+ if(t.mode==='car')return t.vehicleKind==='scooter'?'Absteigen':'Aussteigen';
+ if(t.nearVehicle)return t.nearVehicle.name+' ansehen';if(t.nearCitizen)return 'Passantin oder Passanten ansprechen';
+ return bonusReached?'Weiter erkunden':'Zusatzauftrag ansehen';
+}
+async function beginBonus(){
+ if(loading||!bonusUnlocked())return false;
+ loading=true;const token=++loadToken;bonusActive=true;bonusReached=false;s=null;t=null;lastCitizen=chatCitizen=currentChat=null;target={...pubPlace};
+ await A?.unlock();if(token!==loadToken)return false;A?.pauseMusic();stopVoice();Drive.pause?.();
+ panel('EINEN MOMENT','Deine Stadt wird vorbereitet.',`<p>Dein Zusatzauftrag startet gleich.</p><p role="status" id="loadingStatus">Fahrzeuge werden vorbereitet …</p>`);$('#closeDialog').hidden=true;await new Promise(requestAnimationFrame);
+ try{
+  await window.H3Vehicles?.preload?.();if(token!==loadToken)return false;
+  running=true;$('#home').hidden=true;$('#game').hidden=false;document.body.classList.add('playing');['journalBtn','mapBtn','pauseBtn'].forEach(id=>$('#'+id).hidden=false);
+  Drive.init($('#city'),telemetry,onWorldAction);readyWorld=true;Drive.setQuality?.(settings.quality||'auto');
+  if(!Drive.clearMission?.())throw new Error('Die freie Stadt konnte nicht vorbereitet werden.');
+  target={...pubPlace};Drive.setTarget(target);$('#loadingStatus').textContent='Gleich geht es los …';await Drive.ready?.();if(token!==loadToken)return false;
+  Drive.resize();loading=false;$('#closeDialog').hidden=false;modal.close();Drive.resume();A?.resumeMusic();update();bonusJournal();return true;
+ }catch(e){
+  if(token!==loadToken)return false;bonusActive=false;running=false;loading=false;$('#closeDialog').hidden=false;Drive.pause?.();
+  panel('GRAFIKSTART','Die Stadt konnte nicht starten',`<p>${esc(e.message)}</p><div class="actions">${button('Erneut versuchen','beginbonus')}${button('Zur Transportauswahl','home','','secondary')}</div>`);console.error(e);return false;
+ }
+}
+function completeBonusIfInside(info){
+ if(!bonusActive||bonusReached||!bonusUnlocked()||!running||loading||info.mode!=='walk'||info.pubLocation!=='inside')return false;
+ bonusReached=true;
+ if(!bonusRecord){bonusRecord={id:'gcb-pub',finished:new Date().toISOString()};try{localStorage.setItem(BONUS_KEY,JSON.stringify(bonusRecord))}catch{}}
+ target=null;Drive.setTarget(null);update();updateGuidance(info);renderCards();
+ panel('ZUSATZMISSION 6','GCB Pub gefunden',`<div class="info"><strong>Geschafft!</strong><p>Du hast das GCB Pub am Quai gefunden und bist hineingegangen.</p></div><p>Schau dich um und bestelle beim Kellner etwas zu essen. Deine fünf Transportmissionen bleiben abgeschlossen.</p><div class="actions">${button('Weiter erkunden','bonuscontinue')}${button('Transportauswahl','home','','secondary')}</div>`);return true;
+}
+
+function renderCards(){
+ const unlocked=bonusUnlocked();
+ $('#missionCards').innerHTML=D.missions.map((c,i)=>`<button class="missionCard ${!bonusActive&&i===selected?'selected':''}" data-mission="${i}"><span class="number">MISSION ${i+1}</span><h3>${esc(c.title)}</h3><p>${esc(c.patient.name)} · ${c.patient.age} Jahre<br>${esc(c.subtitle)}</p>${completed[c.id]?'<span class="finished">✓ Abgeschlossen</span>':''}</button>`).join('')+(unlocked?`<button class="missionCard" data-bonus-pub="true"><span class="number">ZUSATZMISSION 6</span><h3>Finde das GCB Pub</h3><p>Entdecke das Pub am Quai und tritt ein.</p>${bonusRecord?'<span class="finished">✓ Zusatzmission abgeschlossen</span>':'<span class="finished">Bonus freigeschaltet</span>'}</button>`:'');
+ document.querySelectorAll('[data-mission]').forEach(b=>b.onclick=()=>{selected=+b.dataset.mission;renderCards()});document.querySelectorAll('[data-bonus-pub]').forEach(b=>b.onclick=()=>beginBonus());
+ $('#totalProgress').textContent=`${D.missions.filter(c=>completed[c.id]).length} von 5 abgeschlossen`;
+ if(homeCaption)homeCaption.textContent=homeCaptionBase+(unlocked?' · Zusatzmission 6: GCB Pub über die Karte (M) finden':'');
+}
+function tutorial(start=false){if(bonusActive&&running){bonusJournal();return;}panel('SO SPIELST DU','Deine erste Transportmission',`<p>Du begleitest eine Person vom Auftrag bis zur Übergabe. Lies zuerst ihren Bedarf – dann suchst du das passende Fahrzeug in der Stadt.</p><div class="grid"><div class="card"><span class="introIcon">☏</span><h3>Gespräch und Vorbereitung</h3><p>Folge dem leuchtenden Abholpunkt. Drücke Enter bei der Person, stelle die drei Fragen und bereite die nötigen Dinge vor.</p></div><div class="card"><span class="introIcon">▰</span><h3>Fahrzeug finden</h3><p>Der Richtungspfeil oben zeigt den Weg zum aktuellen Ziel, daneben siehst du die Entfernung. Unten links siehst du die Karte mit allen fünf Fahrzeugen. M öffnet die Karte mit fünf Fahrzeugstandorten und ihren Namen. Gehe zu einem Wagen, prüfe sein Angebot mit Enter und steige ein.</p></div><div class="card"><span class="introIcon">⌖</span><h3>Abholen und fahren</h3><p>Fahre zurück zur Abholzone und halte an. Übernimm die Person mit Enter. Folge danach der Route zum Ziel.</p></div><div class="card"><span class="introIcon">✓</span><h3>Persönlich übergeben</h3><p>Am Ziel parkieren, mit F aussteigen und mit Enter die Übergabe prüfen. Fehler kannst du verbessern.</p></div></div>${bonusHelp()}<div class="info"><strong>Steuerung</strong><p>Pfeiltasten: ←/→ drehen Figur und Kamera, ↑ geht vorwärts, ↓ rückwärts. Drehen geht auch im Stand. Im Fahrzeug: lenken, Gas und Bremse. Enter: die angezeigte Aktion ausführen oder eine Schaltfläche bestätigen. In Dialogen wählst du Schaltflächen mit ↑/↓; Tab wechselt zu Auswahlfeldern, Leertaste wählt Kästchen an oder ab. Nach zwei Sekunden Vorwärtsgehen rennst du automatisch. Shift: sofort sprinten. Maus halten und ziehen: kurz umschauen; danach folgt die Kamera beim Weitergehen wieder der Figur. F: einmal drücken – anhalten und aussteigen. M: Karte. J: Auftrag. Esc: Pause. Zu Fuss: sichtbare Spielfigur. Im Auto: Aussenansicht von hinten. C richtet die Kamera wieder hinter dem Wagen aus. Auf der Karte findest du auch frei nutzbare Stadtwagen und E-Scooter für eigene Wege. Auf dem Scooter bleibt deine Figur sichtbar; Einmal F hält an und lässt dich absteigen. Patientinnen und Patienten fahren mit dem geprüften Transportangebot.</p></div><p class="small">Die Fahrsteuerung ist eine Spielabstraktion. Im Berufsalltag fahren entsprechend berechtigte Personen. Pflege, Verladung und Sicherung erfordern den vereinbarten Auftrag und die nötige Qualifikation. Beim Rettungswagen ist das qualifizierte Team an Bord. Geschwindigkeit gibt keine Lernpunkte.</p><div class="actions">${button(start?'Mission beginnen':'Verstanden',start?'begin':'close',String(selected))}</div>`);settings.tutorial=true;store()}
+async function begin(index){if(loading||!Number.isInteger(index)||index<0||index>=D.missions.length)return;bonusActive=false;bonusReached=false;loading=true;const token=++loadToken;lastCitizen=chatCitizen=currentChat=null;await A?.unlock();if(token!==loadToken)return;A?.pauseMusic();stopVoice();selected=index;m=D.missions[index];s=R.newState(m.id);t=null;target=m.pickup;Drive.pause?.();panel('EINEN MOMENT','Deine Stadt wird vorbereitet.',`<p>Fahrzeuge und Figuren werden geladen. Danach kannst du die Mission ohne nachträglich aufploppende Modelle beginnen.</p><p role="status" id="loadingStatus">Fahrzeuge werden vorbereitet …</p>`);$('#closeDialog').hidden=true;await new Promise(requestAnimationFrame);try{await window.H3Vehicles?.preload?.();if(token!==loadToken)return;$('#loadingStatus').textContent='Die Stadt wird vorbereitet …';running=true;$('#home').hidden=true;$('#game').hidden=false;document.body.classList.add('playing');['journalBtn','mapBtn','pauseBtn'].forEach(id=>$('#'+id).hidden=false);Drive.init($('#city'),telemetry,onWorldAction);readyWorld=true;Drive.setQuality?.(settings.quality||'auto');Drive.setMission({id:m.id,pickup:m.pickup,dropoff:m.dropoff,patient:m.patient,vehicleType:m.vehicleType});$('#loadingStatus').textContent='Gleich geht es los …';await Drive.ready?.();if(token!==loadToken)return;Drive.setTarget(m.pickup);Drive.resize();loading=false;$('#closeDialog').hidden=false;modal.close();Drive.resume();A?.resumeMusic();update();missionBrief()}catch(e){if(token!==loadToken)return;running=false;loading=false;$('#closeDialog').hidden=false;panel('GRAFIKSTART','Die Stadt konnte nicht starten',`<p>${esc(e.message)}</p><p>Bitte einen aktuellen Desktop-Browser mit aktivierter Grafikbeschleunigung verwenden.</p><div class="actions">${button('Erneut versuchen','begin',String(index))}${button('Zur Missionsauswahl','home','','secondary')}</div>`);console.error(e)}}
 function navigate(p){target=p;mapPaintAt=0;Drive.setTarget(p);update();drawMap($('#miniMap'))}
 function setText(selector,value){const e=$(selector),v=String(value);if(e.textContent!==v)e.textContent=v}
 let mapPaintAt=0;
-function telemetry(info){t=info;if(target?.id&&target.id===info.targetId){target.x=info.targetX;target.z=info.targetZ;}$('#exitBtn').disabled=!!info.exitPending;$('#contextBtn').disabled=!!info.exitPending||!!info.enterPending;A?.updateVehicle?.(info);if(info.nearCitizen)lastCitizen={...info.nearCitizen,seenAt:Date.now()};if(info.error){++loadToken;loading=false;running=false;$('#closeDialog').hidden=false;Drive.pause();A?.pauseMusic();panel('GRAFIK','Darstellung unterbrochen',`<p>${esc(info.error)}</p>${button('Zur Missionsauswahl','home')}`);return}setText('#speed',Math.round(info.speed||0));setText('#travelMode',info.mode==='car'?info.vehicleName||'IM FAHRZEUG':'ZU FUSS');$('#exitBtn').hidden=info.mode!=='car';const exitLabel=info.vehicleKind==='scooter'?'Absteigen':'Aussteigen';if($('#exitBtn').dataset.kind!==exitLabel){$('#exitBtn').dataset.kind=exitLabel;$('#exitBtn').innerHTML=exitLabel+' <kbd>F</kbd>';}$('#vehicleHud').hidden=info.mode!=='car';updateGuidance(info);const mapNow=Date.now();if(mapNow-mapPaintAt>=100){drawMap($('#miniMap'));mapPaintAt=mapNow}updateContext()}
+function telemetry(info){const served=info.pubOrderState==='served'&&t?.pubOrderState!=='served';t=info;if(served){const meal=pubMeals.find(q=>q.id===info.pubOrderItem);toast('Kellner: «Bitte sehr! '+(meal?.name||'Dein Gericht')+' steht auf dem Tresen. Guten Appetit!»');}if(target?.id&&target.id===info.targetId){target.x=info.targetX;target.z=info.targetZ;}$('#exitBtn').disabled=!!info.exitPending;$('#contextBtn').disabled=!!info.exitPending||!!info.enterPending;A?.updateVehicle?.(info);if(info.nearCitizen)lastCitizen={...info.nearCitizen,seenAt:Date.now()};if(info.error){++loadToken;loading=false;running=false;$('#closeDialog').hidden=false;Drive.pause();A?.pauseMusic();panel('GRAFIK','Darstellung unterbrochen',`<p>${esc(info.error)}</p>${button('Zur Missionsauswahl','home')}`);return}setText('#speed',Math.round(info.speed||0));setText('#travelMode',info.mode==='car'?info.vehicleName||'IM FAHRZEUG':'ZU FUSS');$('#exitBtn').hidden=info.mode!=='car';const exitLabel=info.vehicleKind==='scooter'?'Absteigen':'Aussteigen';if($('#exitBtn').dataset.kind!==exitLabel){$('#exitBtn').dataset.kind=exitLabel;$('#exitBtn').innerHTML=exitLabel+' <kbd>F</kbd>';}$('#vehicleHud').hidden=info.mode!=='car';updateGuidance(info);const mapNow=Date.now();if(mapNow-mapPaintAt>=100){drawMap($('#miniMap'));mapPaintAt=mapNow}updateContext();completeBonusIfInside(info)}
 let guideAngle=0,guideKey='';
-function updateGuidance(info){const box=$('#routeGuide');if(!box)return;const g=info.guidance;box.hidden=!running||!target||!!s?.finished;if(box.hidden){guideKey='';return}const nextAngle=Number.isFinite(g?.angle)?g.angle:0,key=[m.id,target.x,target.z,info.mode,info.vehicleId||''].join('/');const arrow=$('#routeArrow'),changed=guideKey!==key;if(changed){guideKey=key;guideAngle=nextAngle;arrow.style.transition='none';requestAnimationFrame(()=>{if(guideKey===key)arrow.style.transition=''})}else guideAngle+=Math.atan2(Math.sin(nextAngle-guideAngle),Math.cos(nextAngle-guideAngle));arrow.style.transform='rotate('+guideAngle+'rad)';if(changed)arrow.getBoundingClientRect?.();$('#routeDestination').textContent=target.label||'Markiertes Ziel';$('#routeRemaining').textContent=Math.round(g?.distance??info.distance??0)+' m';box.classList.toggle('arrived',!!g?.arrived);box.setAttribute('aria-label',`${g?.arrived?'Zielbereich erreicht. ':''}${target.label||'Markiertes Ziel'}, ${Math.round(g?.distance??info.distance??0)} Meter`)}
+function updateGuidance(info){const box=$('#routeGuide');if(!box)return;const g=info.guidance;box.hidden=!running||!target||!!s?.finished;if(box.hidden){guideKey='';return}const nextAngle=Number.isFinite(g?.angle)?g.angle:0,key=[bonusActive?'bonus-pub':m.id,target.x,target.z,info.mode,info.vehicleId||''].join('/');const arrow=$('#routeArrow'),changed=guideKey!==key;if(changed){guideKey=key;guideAngle=nextAngle;arrow.style.transition='none';requestAnimationFrame(()=>{if(guideKey===key)arrow.style.transition=''})}else guideAngle+=Math.atan2(Math.sin(nextAngle-guideAngle),Math.cos(nextAngle-guideAngle));arrow.style.transform='rotate('+guideAngle+'rad)';if(changed)arrow.getBoundingClientRect?.();$('#routeDestination').textContent=target.label||'Markiertes Ziel';$('#routeRemaining').textContent=Math.round(g?.distance??info.distance??0)+' m';box.classList.toggle('arrived',!!g?.arrived);box.setAttribute('aria-label',`${g?.arrived?'Zielbereich erreicht. ':''}${target.label||'Markiertes Ziel'}, ${Math.round(g?.distance??info.distance??0)} Meter`)}
 function phase(){if(s.finished)return 5;if(s.loaded)return 4;if(s.prepared&&s.approved)return 3;if(s.prepared)return 2;if(s.asked.length>=m.dialogue.length)return 1;return 0}
 const phaseTexts=[['Lerne die Person kennen.','Finde den Abholort und kläre Mobilität, Wünsche und Vereinbarungen im Gespräch.'],['Bereite die Fahrt vor.','Stelle die benötigten Dinge bereit und bestätige Begleitung und Kostenregelung.'],['Finde das passende Fahrzeug.','Die Karte zeigt die Standorte. Prüfe das konkrete Fahrzeugangebot vor Ort.'],['Zurück zur Abholung.','Komm mit dem geprüften Fahrzeug zur Abholzone, halte an und übernimm die Person.'],['Bring die Person ans Ziel.','Fahre ruhig zur markierten Zielstelle. Parkiere, steige aus und prüfe die Übergabe.'],['Mission abgeschlossen.','Dein Bericht steht im Journal bereit.']];
 function progressSteps(){const p=phase();return '<div class="steps">'+['Gespräch','Vorbereitung','Fahrzeug','Abholung','Übergabe'].map((v,i)=>`<span class="step ${i<p?'done':i===p?'current':''}">${i<p?'✓ ':''}${v}</span>`).join('')+'</div>'}
-function update(){if(!s)return;const p=phase();$('#missionTag').textContent=`MISSION ${selected+1} · ${m.patient.name}`;$('#objectiveTitle').textContent=phaseTexts[p][0];$('#objectiveBtn').setAttribute('aria-label',`Auftrag für ${m.patient.name} öffnen: ${phaseTexts[p][0]} ${phaseTexts[p][1]}`);updateContext()}
+function update(){if(bonusActive){$('#missionTag').textContent='ZUSATZMISSION 6';$('#objectiveTitle').textContent=bonusReached?'GCB Pub gefunden':'Finde das GCB Pub.';$('#objectiveBtn').setAttribute('aria-label','Zusatzauftrag öffnen: Finde das GCB Pub am Quai und tritt ein.');updateContext();return;}if(!s)return;const p=phase();$('#missionTag').textContent=`MISSION ${selected+1} · ${m.patient.name}`;$('#objectiveTitle').textContent=phaseTexts[p][0];$('#objectiveBtn').setAttribute('aria-label',`Auftrag für ${m.patient.name} öffnen: ${phaseTexts[p][0]} ${phaseTexts[p][1]}`);updateContext()}
 
 function allVehicles(){return [...(t?.cars||[]),...(t?.mobility||[])];}
 function pickupAction(){
@@ -11058,26 +11438,30 @@ function transportAction(){
  }
  return {label:'Transportauftrag ansehen',run:journal};
 }
-function updateContext(){if(!t||!s)return;let label='Auftrag ansehen';if(t.exitPending)label='Wird angehalten …';else if(t.enterPending)label='Wagen hält an …';else if(s.finished)label='Auswertung ansehen';else if(s.loaded)label=transportAction().label;else if(t.mode==='car')label=t.civilVehicle?(t.vehicleKind==='scooter'?'Absteigen':'Aussteigen'):t.pickupDistance<=12?pickupAction().label:'Fahrzeug prüfen';else if(t.nearPatient)label='Mit '+m.patient.name+' sprechen';else if(t.nearVehicle)label=t.nearVehicle.name+' ansehen';else if(t.nearCitizen)label='Passantin oder Passanten ansprechen';$('#contextBtn span').textContent=label}
-function context(){if(!running||modal.open||!t)return;if(t.exitPending||t.enterPending)return;if(s.finished){report();return}if(s.loaded){transportAction().run();return}if(t.mode==='car'&&t.civilVehicle){exit();return}if(t.mode==='car'&&t.pickupDistance<=12){pickupAction().run();return}if(t.mode==='car'){vehiclePanel(t.vehicleId);return}if(t.nearPatient){patientPanel();return}if(t.nearVehicle){vehiclePanel(t.nearVehicle.id);return}if(t.nearCitizen){citizenPanel();return}if(lastCitizen&&Date.now()-lastCitizen.seenAt<1600&&Math.hypot(t.x-lastCitizen.x,t.z-lastCitizen.z)<5){citizenPanel(lastCitizen);return}journal()}
-function onWorldAction(e){if(!running||modal.open)return;if(e.kind==='exit'){toast(e.status==='exited'?'Du bist ausgestiegen.':'Hier ist der Ausstieg blockiert. Stelle das Fahrzeug etwas freier ab.');return}if(e.kind==='enter'){toast(e.status==='entered'?'Du kannst losfahren.':'Der Wagen hält an. Gehe an die Tür und drücke Enter.');return}if(s.finished){report();return}if(e.kind==='collision'){s.collisions++;toast('Berührung: anhalten und den freien Weg prüfen. Ruhiges Fahren zählt.');return}if(s.loaded&&['vehicle','patient','destination'].includes(e.kind)){transportAction().run();return}if(e.kind==='vehicle')vehiclePanel(e.vehicleId);else if(e.kind==='patient'){if(t.mode==='car'&&t.pickupDistance<=12)pickupAction().run();else patientPanel()}else if(e.kind==='destination')handover()}
+function updateContext(){if(!t)return;if(bonusActive){$('#contextBtn span').textContent=bonusContextLabel();return;}if(!s)return;let label='Auftrag ansehen';if(t.exitPending)label='Wird angehalten …';else if(t.enterPending)label='Wagen hält an …';else if(t.nearPubCounter)label=t.pubOrderState==='preparing'?'Dein Gericht wird zubereitet …':'Beim Kellner bestellen';else if(s.finished)label='Auswertung ansehen';else if(s.loaded)label=transportAction().label;else if(t.mode==='car')label=t.civilVehicle?(t.vehicleKind==='scooter'?'Absteigen':'Aussteigen'):t.pickupDistance<=12?pickupAction().label:'Fahrzeug prüfen';else if(t.nearPatient)label='Mit '+m.patient.name+' sprechen';else if(t.nearVehicle)label=t.nearVehicle.name+' ansehen';else if(t.nearCitizen)label='Passantin oder Passanten ansprechen';$('#contextBtn span').textContent=label}
+function context(){if(!running||modal.open||!t)return;if(t.exitPending||t.enterPending)return;if(t.nearPubCounter){pubPanel();return;}if(bonusActive){if(t.mode==='car')exit();else if(t.nearVehicle)vehiclePanel(t.nearVehicle.id);else if(t.nearCitizen)citizenPanel();else bonusJournal();return;}if(s.finished){report();return}if(s.loaded){transportAction().run();return}if(t.mode==='car'&&t.civilVehicle){exit();return}if(t.mode==='car'&&t.pickupDistance<=12){pickupAction().run();return}if(t.mode==='car'){vehiclePanel(t.vehicleId);return}if(t.nearPatient){patientPanel();return}if(t.nearVehicle){vehiclePanel(t.nearVehicle.id);return}if(t.nearCitizen){citizenPanel();return}if(lastCitizen&&Date.now()-lastCitizen.seenAt<1600&&Math.hypot(t.x-lastCitizen.x,t.z-lastCitizen.z)<5){citizenPanel(lastCitizen);return}journal()}
+function onWorldAction(e){if(!running||modal.open)return;if(e.kind==='pub-order'){pubPanel();return;}if(e.kind==='exit'){toast(e.status==='exited'?'Du bist ausgestiegen.':'Hier ist der Ausstieg blockiert. Stelle das Fahrzeug etwas freier ab.');return}if(e.kind==='enter'){toast(e.status==='entered'?'Du kannst losfahren.':'Der Wagen hält an. Gehe an die Tür und drücke Enter.');return}if(bonusActive){if(e.kind==='vehicle')vehiclePanel(e.vehicleId);else if(e.kind==='collision')toast('Berührung: Halte an und prüfe den freien Weg.');return;}if(s.finished){report();return}if(e.kind==='collision'){s.collisions++;toast('Berührung: anhalten und den freien Weg prüfen. Ruhiges Fahren zählt.');return}if(s.loaded&&['vehicle','patient','destination'].includes(e.kind)){transportAction().run();return}if(e.kind==='vehicle')vehiclePanel(e.vehicleId);else if(e.kind==='patient'){if(t.mode==='car'&&t.pickupDistance<=12)pickupAction().run();else patientPanel()}else if(e.kind==='destination')handover()}
 function citizenPanel(person=t?.nearCitizen){if(t?.mode!=='walk'||!person)return;const nearby=t.nearCitizen?.id===person.id||lastCitizen?.id===person.id&&Date.now()-lastCitizen.seenAt<1600&&Math.hypot(t.x-person.x,t.z-person.z)<5;if(!nearby&&chatCitizen!==person){toast('Gehe etwas näher zur Person.');return}chatCitizen=person;currentChat=window.H3Chats?.next(person.id,person.sex);if(!currentChat)return;const line=currentChat;panel('BEGEGNUNG IN DER STADT',line.name,`<p class="small">Du: «${esc(line.question)}»</p><div class="quote">«${esc(line.text)}»</div><div class="actions">${button('Weiterplaudern','chatmore')}${button('Nochmals hören','chatreplay','','secondary')}${button('Danke, weitergehen','close','','secondary')}</div>`);if(settings.sound)A?.speak(line.key,line.text,{sex:line.sex})}
 function patientPanel(){if(!t||(s.loaded||s.finished)||!(t.nearPatient||t.mode==='car'&&t.pickupDistance<=12)){toast(s.loaded?'Die Person ist bereits übernommen. Nutze den Auftrag für die vereinbarten Angaben.':'Gehe zur Person am Abholort, um das Gespräch zu führen.');return}panel('GESPRÄCH UND AUFTRAG',m.patient.name,`<p>${m.patient.age} Jahre · ${esc(m.pickup.label)}</p><div class="quote">«${esc(m.patient.quote)}»</div>${m.dialogue.map(q=>`<button class="question ${s.asked.includes(q.id)?'asked':''}" data-action="ask" data-id="${q.id}">${s.asked.includes(q.id)?'✓ ':''}${esc(q.question)}</button>`).join('')}<div id="answer"></div><div class="actions">${button('Vorbereitung prüfen','pack')}${t.mode==='car'?button('Fahrzeugangebot prüfen','vehicle',String(t.vehicleId),'secondary'):''}${s.prepared&&s.approved?button('Person übernehmen','board','','gold'):''}${button('Auftrag ansehen','journal','','secondary')}</div>`,true);Drive.portrait?.('patient');if(!s.patientIntroShown){s.patientIntroShown=true;speak('intro',m.patient.quote)}}
 function ask(id){const q=m.dialogue.find(q=>q.id===id);if(!q)return;if(!s.asked.includes(id))s.asked.push(id);s.answers[id]=q.answer;update();body.querySelectorAll('.question').forEach(b=>{if(b.dataset.id===id){b.classList.add('asked');b.textContent='✓ '+q.question}});$('#answer').innerHTML=`<div class="answer"><strong>${esc(m.patient.name)}</strong><p>«${esc(q.answer)}»</p>${button('Nochmals hören','replay',id,'secondary')}</div>`;bind();$('#answer').scrollIntoView({block:'nearest'});speak(id,q.answer)}
 function packPanel(){if(s.loaded||s.finished){panel('VORBEREITUNG AN BORD','Das ist vorbereitet.',`<p>Die Person und die bestätigten Dinge sind bereits im Fahrzeug.</p><div class="info">${m.packOptions.filter(o=>s.pack.includes(o.id)).map(o=>esc(o.label)).join('<br>')}</div><p>${esc(m.escort)}</p><p>${esc(m.costs)}</p><div class="actions">${button('Zur Stadt','close')}</div>`);return}panel('VORBEREITUNG','Was kommt mit?',`<p>Bereite nur fallbezogen benötigte oder ausdrücklich gewünschte Dinge vor. Kleidung wird bereitgelegt oder angezogen, Hilfsmittel werden separat mitgegeben.</p><form id="prepForm">${m.packOptions.map(o=>`<label class="check"><input type="checkbox" name="item" value="${o.id}" ${s.pack.includes(o.id)?'checked':''}><span>${esc(o.label)}</span></label>`).join('')}<div class="info"><strong>Unterstützung und Begleitung</strong><p>${esc(m.escort)}</p><p><strong>Rückweg:</strong> ${esc(m.returnPlan)}</p></div><label class="check"><input type="checkbox" name="escort" ${s.escort?'checked':''}><span>Ich habe die genannte Vereinbarung geprüft; Unterstützung und Begleitung sind tatsächlich gesichert.</span></label><div class="info"><strong>Kostenregelung dieses Falls</strong><p>${esc(m.costs)}</p></div><label class="check"><input type="checkbox" name="costs" ${s.costs?'checked':''}><span>Die Kostenregelung ist für diesen Auftrag geklärt; ich leite daraus keine pauschale Versicherungsdeckung ab.</span></label><div id="prepFeedback"></div><div class="actions"><button class="primary" type="submit">Vorbereitung bestätigen</button>${button('Zurück zum Gespräch','patient','','secondary')}</div></form>`);body.querySelector('[data-action="patient"]').onclick=patientPanel;$('#prepForm').onchange=()=>{const f=new FormData($('#prepForm'));s.pack=f.getAll('item');s.escort=f.has('escort');s.costs=f.has('costs');s.prepared=false;update()};$('#prepForm').onsubmit=e=>{e.preventDefault();prepare()}}
 function prepare(){const f=new FormData($('#prepForm'));s.pack=f.getAll('item');s.escort=f.has('escort');s.costs=f.has('costs');const errors=R.prepIssues(m,s);if(errors.length){$('#prepFeedback').innerHTML=`<div class="info warning"><strong>Noch klären</strong><p>${errors.map(esc).join('<br><br>')}</p></div>`;$('#prepFeedback').scrollIntoView({block:'nearest'});return}s.prepared=true;update();const inApproved=t.mode==='car'&&!t.civilVehicle&&String(t.vehicleId)===String(s.approved?.id);if(s.approved){const v=t.cars.find(v=>v.id===s.approved.id);navigate(inApproved?m.pickup:v?{...v,label:v.name}:m.pickup)}else{const nearest=t.cars.reduce((a,b)=>Math.hypot(b.x-t.x,b.z-t.z)<Math.hypot(a.x-t.x,a.z-t.z)?b:a);navigate({...nearest,label:nearest.name+' · Angebot prüfen'})}panel('VORBEREITUNG BESTÄTIGT','Die Person ist vorbereitet.',`<p>Die nötigen Dinge und Vereinbarungen sind gesichert. ${s.approved?(inApproved?'Die Weganzeige führt mit dem geprüften Fahrzeug zurück zur Abholung.':'Die Weganzeige führt zurück zum bereits geprüften Fahrzeug.'):'Die Weganzeige führt zum nächstgelegenen Fahrzeugangebot. Prüfe selbst, ob seine Leistungen passen. Auf der Karte kannst du ein anderes Fahrzeug als Suchziel wählen.'}</p><div class="actions">${button('Fahrzeuge auf der Karte','map')}${button('Zur Stadt','close','','secondary')}</div>`)}
-function vehiclePanel(id){const v=allVehicles().find(v=>String(v.id)===String(id));if(!v){toast('Dieses Fahrzeug ist nicht erreichbar. Gehe näher heran.');return}if(v.civil){const aboard=t.mode==='car'&&String(t.vehicleId)===String(v.id),scooter=v.kind==='scooter';panel('FREI UNTERWEGS',v.name,`<p>${scooter?'Nutze den E-Scooter für eigene Wege durch Lindenhafen. Er fährt höchstens 20 km/h.':'Mit diesem Stadtwagen kannst du eigene Wege durch Lindenhafen zurücklegen.'}</p><div class="info">Die Person deines Transportauftrags bleibt am vereinbarten Ort. Für ihren Transport brauchst du das konkret geprüfte Transportfahrzeug.</div><div class="actions">${aboard?button(scooter?'Absteigen':'Aussteigen','exit'):button(scooter?'Aufsteigen':'Einsteigen','enter',String(v.id))}${button('Zum Abholort','navpickup','','secondary')}${button('Auftrag ansehen','journal','','secondary')}${button('Zur Stadt','close','','secondary')}</div>`);return}const offer=D.offers.find(o=>o.id===v.type);panel('FAHRZEUG VOR ORT',v.name||offer?.label||'Transportfahrzeug',`<div class="info"><strong>${esc(offer?.label)}</strong><p>${esc(offer?.offer)}</p></div><p class="small">Dieses Angebot gilt für den fiktiven Auftrag. Prüfe es am konkreten Bedarf der Person.</p><form id="vehicleForm"><h3>${esc(m.check.question)}</h3>${m.check.options.map(o=>`<label class="check"><input type="radio" name="reason" value="${o.id}" ${s.reason===o.id?'checked':''}><span>${esc(o.label)}</span></label>`).join('')}<div id="vehicleFeedback"></div><div class="actions"><button class="primary" type="submit">Für den Auftrag prüfen</button>${t.mode==='walk'?button('Einsteigen','enter',String(v.id),'secondary'):button('Aussteigen','exit','','secondary')}${button('Fallangaben lesen','journal','','secondary')}</div></form>`);$('#vehicleForm').onsubmit=e=>{e.preventDefault();approveVehicle(v.id)}}
+function vehiclePanel(id){const v=allVehicles().find(v=>String(v.id)===String(id));if(!v){toast('Dieses Fahrzeug ist nicht erreichbar. Gehe näher heran.');return}if(bonusActive){const aboard=t.mode==='car'&&String(t.vehicleId)===String(v.id),scooter=v.kind==='scooter';panel('FREI UNTERWEGS',v.name,`<p>${scooter?'Mit dem E-Scooter kannst du den Quai erkunden.':'Nutze diesen Wagen für deine Entdeckungstour durch Lindenhafen.'}</p><div class="actions">${aboard?button(scooter?'Absteigen':'Aussteigen','exit'):button(scooter?'Aufsteigen':'Einsteigen','enter',String(v.id))}${button('Zusatzauftrag','bonusjournal','','secondary')}${button('Zur Stadt','close','','secondary')}</div>`);return;}if(v.civil){const aboard=t.mode==='car'&&String(t.vehicleId)===String(v.id),scooter=v.kind==='scooter';panel('FREI UNTERWEGS',v.name,`<p>${scooter?'Nutze den E-Scooter für eigene Wege durch Lindenhafen. Er fährt höchstens 20 km/h.':'Mit diesem Stadtwagen kannst du eigene Wege durch Lindenhafen zurücklegen.'}</p><div class="info">Die Person deines Transportauftrags bleibt am vereinbarten Ort. Für ihren Transport brauchst du das konkret geprüfte Transportfahrzeug.</div><div class="actions">${aboard?button(scooter?'Absteigen':'Aussteigen','exit'):button(scooter?'Aufsteigen':'Einsteigen','enter',String(v.id))}${button('Zum Abholort','navpickup','','secondary')}${button('Auftrag ansehen','journal','','secondary')}${button('Zur Stadt','close','','secondary')}</div>`);return}const offer=D.offers.find(o=>o.id===v.type);panel('FAHRZEUG VOR ORT',v.name||offer?.label||'Transportfahrzeug',`<div class="info"><strong>${esc(offer?.label)}</strong><p>${esc(offer?.offer)}</p></div><p class="small">Dieses Angebot gilt für den fiktiven Auftrag. Prüfe es am konkreten Bedarf der Person.</p><form id="vehicleForm"><h3>${esc(m.check.question)}</h3>${m.check.options.map(o=>`<label class="check"><input type="radio" name="reason" value="${o.id}" ${s.reason===o.id?'checked':''}><span>${esc(o.label)}</span></label>`).join('')}<div id="vehicleFeedback"></div><div class="actions"><button class="primary" type="submit">Für den Auftrag prüfen</button>${t.mode==='walk'?button('Einsteigen','enter',String(v.id),'secondary'):button('Aussteigen','exit','','secondary')}${button('Fallangaben lesen','journal','','secondary')}</div></form>`);$('#vehicleForm').onsubmit=e=>{e.preventDefault();approveVehicle(v.id)}}
 function approveVehicle(id){const v=t.cars.find(v=>String(v.id)===String(id));if(!v){toast('Prüfe ein Transportfahrzeug für diesen Auftrag.');return}const f=new FormData($('#vehicleForm')),reason=f.get('reason');const errors=R.vehicleIssues(m,v.type,reason);if(errors.length){$('#vehicleFeedback').innerHTML=`<div class="info warning"><p>${errors.map(esc).join('<br><br>')}</p></div>`;$('#vehicleFeedback').scrollIntoView({block:'nearest'});return}s.reason=reason;s.approved={id:v.id,type:v.type};update();panel('FAHRZEUG BESTÄTIGT','Das Angebot passt zum Auftrag.',`<div class="info">${esc(m.vehicleReason)}</div><p>Das konkrete Fahrzeug ist für diesen Auftrag bestätigt. ${s.prepared?'Fahre zur Abholung.':'Kläre noch das Gespräch und die Vorbereitung am Abholort.'}</p><div class="actions">${button(t.mode==='car'?'Zur Abholung fahren':'Einsteigen',t.mode==='car'?'navpickup':'enter',String(v.id))}${button('Zur Stadt','close','','secondary')}</div>`);navigate(m.pickup)}
-function enter(id){if(s.loaded&&String(t.vehicleId)!==String(id)){toast('Die Person bleibt im bestätigten Fahrzeug. Wechsle jetzt nicht den Wagen.');return}closePanel();const result=Drive.requestEnter?Drive.requestEnter(id):(Drive.enterVehicle(id)?'entered':'unavailable');if(result==='entered'){if(s.approved&&String(s.approved.id)===String(id))navigate(s.loaded?m.dropoff:m.pickup);toast('Pfeiltasten steuern. Einmal F: anhalten und aussteigen.')}else toast(result==='waiting'?'Der Wagen hält für dich an.':'Gehe näher an das Fahrzeug heran.')}
+function enter(id){if(s?.loaded&&String(t.vehicleId)!==String(id)){toast('Die Person bleibt im bestätigten Fahrzeug. Wechsle jetzt nicht den Wagen.');return}closePanel();const result=Drive.requestEnter?Drive.requestEnter(id):(Drive.enterVehicle(id)?'entered':'unavailable');if(result==='entered'){if(s?.approved&&String(s.approved.id)===String(id))navigate(s.loaded?m.dropoff:m.pickup);toast('Pfeiltasten steuern. Einmal F: anhalten und aussteigen.')}else toast(result==='waiting'?'Der Wagen hält für dich an.':'Gehe näher an das Fahrzeug heran.')}
 function exit(){if(t?.exitPending)return;closePanel();const result=Drive.requestExit?Drive.requestExit():(Drive.exitVehicle()?'exited':'blocked');toast(result==='exited'?'Du bist ausgestiegen. Pfeiltasten bewegen dich.':result==='braking'?'Das Fahrzeug hält an; danach steigst du automatisch aus.':'Hier ist der Ausstieg blockiert. Stelle das Fahrzeug etwas freier ab.')}
 
 function board(){const errors=R.boardIssues(m,s,t);if(errors.length){panel('ÜBERNAHME NOCH OFFEN','Die Person wartet noch.',`<div class="info warning">${errors.map(esc).join('<br><br>')}</div><div class="actions">${button('Auftrag prüfen','journal')}${button('Zur Stadt','close','','secondary')}</div>`);return}if(!Drive.loadPatient()){toast('Übernahme noch nicht möglich. Fahrzeug, Abstand und Stillstand prüfen.');return}s.loaded=true;s.delivered=false;navigate(m.dropoff);update();panel('PERSON ÜBERNOMMEN','Die Fahrt kann beginnen.',`<div class="info"><strong>${esc(m.patient.name)}</strong><p>${esc(m.transportOrder)}</p><p>${esc(m.escort)}</p></div><p>Die Übernahme und Sicherung durch die zuständigen Personen ist im Spiel bestätigt. Du steuerst die Fahrt als abstrahierte Simulation; es ist keine praktische Sicherungsprüfung.</p><div class="actions">${button('Zum Ziel fahren','close')}</div>`)}
 function handover(){if(!s.loaded){toast('Hole zuerst die vorbereitete Person mit dem bestätigten Fahrzeug ab.');return}if(t.dropoffDistance>12){toast('Das Ziel ist noch nicht erreicht. Folge der markierten Route.');return}if(t.mode==='walk'&&Math.hypot(t.x-m.dropoff.x,t.z-m.dropoff.z)>12){navigate(m.dropoff);toast('Gehe zur Person in der Übergabezone zurück. Die persönliche Übergabe findet vor Ort statt.');return}if(t.mode==='car'){panel('AM ZIEL','Parkieren und aussteigen',`<p>Halte an der Abhol- beziehungsweise Übergabezone und steige aus. Danach prüfst du die persönliche Übergabe.</p><div class="actions">${button('Anhalten und aussteigen','exit')}${button('Zur Fahrt','close','','secondary')}</div>`);return}panel('PERSÖNLICHE ÜBERGABE',m.dropoff.label,`<p>${esc(m.patient.name)} ist angekommen. Wähle nur die nötigen Übergabeinformationen.</p><form id="handoverForm">${m.handover.map(h=>`<label class="check"><input type="checkbox" name="handover" value="${h.id}"><span>${esc(h.label)}</span></label>`).join('')}<div id="handoverFeedback"></div><div class="actions"><button class="primary" type="submit">Übergeben und abschliessen</button></div></form>`);$('#handoverForm').onsubmit=e=>{e.preventDefault();finish()}}
 function finish(){if(s.finished){report();return}s.attempts++;const checked=new FormData($('#handoverForm')).getAll('handover');const errors=R.handoverIssues(m,s,t,checked);if(errors.length){$('#handoverFeedback').innerHTML=`<div class="info warning">${errors.map(esc).join('<br><br>')}</div>`;$('#handoverFeedback').scrollIntoView({block:'nearest'});return}if(!Drive.unloadPatient()){toast('Die Übergabezone ist noch nicht bereit. Prüfe Stillstand und Abstand.');return}s.delivered=true;s.loaded=false;s.finished=true;target=null;completed[m.id]={id:m.id,name:m.patient.name,vehicle:s.approved.type,prepared:s.pack,collisions:s.collisions,reason:s.reason,finished:new Date().toISOString()};store();update();updateGuidance(t);report()}
-function report(){panel('MISSION ABGESCHLOSSEN','Gut vorbereitet. Sicher angekommen.',`<div class="info"><strong>${esc(m.patient.name)} · ${esc(m.dropoff.label)}</strong><p>${esc(m.vehicleReason)}</p></div><div class="feedbackRow"><strong>Gespräch und Vorbereitung</strong>Bedarf und Wünsche erhoben; nötige Dinge und Vereinbarungen vorbereitet.</div><div class="feedbackRow"><strong>Fahrzeug und Route</strong>Konkretes Angebot geprüft, Person am richtigen Ort aufgenommen und tatsächlich zum Ziel gefahren.</div><div class="feedbackRow"><strong>Übergabe</strong>Notwendige Angaben ausgewählt; private Angaben ohne Transportbezug geschützt.</div><p class="small" style="margin-top:16px">${s.collisions?`${s.collisions} Berührung(en) im Spiel: Überlege, wo ruhigeres Fahren oder eine andere Linie geholfen hätte.`:'Ohne registrierte Fahrzeugberührung angekommen.'} Fahrgeschick ist keine FaGe-Kompetenznote.</p><h3 style="margin-top:20px">Für deine OneNote-Seite</h3><p>${esc(m.finishReflection)}</p><div class="actions">${button('Bericht herunterladen','export')}${selected<4?button('Nächste Mission','next','','secondary'):''}${button('Missionsauswahl','home','','secondary')}</div>`)}
-function journal(){if(!running){tutorial(false);return}if(s.finished){report();return}panel('AUFTRAGSJOURNAL',m.title,`<div class="info"><strong>${esc(phaseTexts[phase()][0])}</strong><p>${esc(phaseTexts[phase()][1])}</p></div>${progressSteps()}<div class="tabs">${button('Gespräch','patient','','secondary')}${button('Vorbereitung','pack','','secondary')}${button('Karte','map','','secondary')}</div>${[['Person',m.patient.name+' · '+m.patient.age+' Jahre'],['Von / Nach',m.pickup.label+' / '+m.dropoff.label],['Termin und Abholung',m.appointmentTime+' · Abholung '+m.pickupTime],['Ausgangslage',m.condition],['Mobilität',m.mobility],['Transportauftrag',m.transportOrder],['Begleitung',m.escort],['Rückweg',m.returnPlan],['Kostenregelung',m.costs]].map(([key,value])=>`<div class="dataRow"><b>${esc(key)}</b>${esc(value)}</div>`).join('')}<div class="actions">${button('Lehrmittel und Hinweise','sources','','secondary')}${button('Zur Stadt','close')}</div>`);body.querySelector('[data-action="patient"]').onclick=()=>{if(t.nearPatient||t.mode==='car'&&t.pickupDistance<=12)patientPanel();else toast('Gehe zur Person am Abholort, um das Gespräch zu führen.')}}
+function report(){if(bonusActive){bonusJournal();return;}panel('MISSION ABGESCHLOSSEN','Gut vorbereitet. Sicher angekommen.',`<div class="info"><strong>${esc(m.patient.name)} · ${esc(m.dropoff.label)}</strong><p>${esc(m.vehicleReason)}</p></div><div class="feedbackRow"><strong>Gespräch und Vorbereitung</strong>Bedarf und Wünsche erhoben; nötige Dinge und Vereinbarungen vorbereitet.</div><div class="feedbackRow"><strong>Fahrzeug und Route</strong>Konkretes Angebot geprüft, Person am richtigen Ort aufgenommen und tatsächlich zum Ziel gefahren.</div><div class="feedbackRow"><strong>Übergabe</strong>Notwendige Angaben ausgewählt; private Angaben ohne Transportbezug geschützt.</div><p class="small" style="margin-top:16px">${s.collisions?`${s.collisions} Berührung(en) im Spiel: Überlege, wo ruhigeres Fahren oder eine andere Linie geholfen hätte.`:'Ohne registrierte Fahrzeugberührung angekommen.'} Fahrgeschick ist keine FaGe-Kompetenznote.</p><h3 style="margin-top:20px">Für deine OneNote-Seite</h3><p>${esc(m.finishReflection)}</p>${bonusUnlocked()?`<div class="info"><strong>Zusatzmission 6 freigeschaltet</strong><p>Alle fünf Transportmissionen sind abgeschlossen. Finde jetzt das GCB Pub am Quai.</p>${button('Zusatzmission starten','beginbonus')}</div>`:''}<div class="actions">${button('Bericht herunterladen','export')}${selected<4?button('Nächste Mission','next','','secondary'):''}${button('Missionsauswahl','home','','secondary')}</div>`)}
+function journal(){if(bonusActive&&running){bonusJournal();return;}if(!running){tutorial(false);return}if(s.finished){report();return}panel('AUFTRAGSJOURNAL',m.title,`<div class="info"><strong>${esc(phaseTexts[phase()][0])}</strong><p>${esc(phaseTexts[phase()][1])}</p></div>${progressSteps()}<div class="tabs">${button('Gespräch','patient','','secondary')}${button('Vorbereitung','pack','','secondary')}${button('Karte','map','','secondary')}</div>${[['Person',m.patient.name+' · '+m.patient.age+' Jahre'],['Von / Nach',m.pickup.label+' / '+m.dropoff.label],['Termin und Abholung',m.appointmentTime+' · Abholung '+m.pickupTime],['Ausgangslage',m.condition],['Mobilität',m.mobility],['Transportauftrag',m.transportOrder],['Begleitung',m.escort],['Rückweg',m.returnPlan],['Kostenregelung',m.costs]].map(([key,value])=>`<div class="dataRow"><b>${esc(key)}</b>${esc(value)}</div>`).join('')}<div class="actions">${button('Lehrmittel und Hinweise','sources','','secondary')}${button('Zur Stadt','close')}</div>`);body.querySelector('[data-action="patient"]').onclick=()=>{if(t.nearPatient||t.mode==='car'&&t.pickupDistance<=12)patientPanel();else toast('Gehe zur Person am Abholort, um das Gespräch zu führen.')}}
 function navVehicle(id){const v=allVehicles().find(v=>String(v.id)===String(id));if(v){navigate({...v,label:v.name});closePanel();toast(v.name+' ist als Suchziel markiert.')}}
-function mapPanel(){if(!running)return;panel('NAVIGATION','Dein Weg durch Lindenhafen',`<canvas id="dialogMap" width="760" height="410" aria-label="Stadtplan mit Strassen, Fahrzeugen, Person und Ziel"></canvas><p class="small">Weiss: du · Rosa: Abholort · Gold: Ziel · Türkis 1–5: Transportfahrzeuge · Blau: Stadtwagen · Violett: E-Scooter. Norden bleibt oben. Die Linie folgt den Strassen. Auf der Karte wird niemand teleportiert.</p><h3>Fahrzeug als Suchziel markieren</h3><div class="vehicleList">${t.cars.map((v,index)=>`<button data-action="navvehicle" data-id="${esc(v.id)}">${index+1}. ${esc(v.name)}<small>${esc(D.offers.find(o=>o.id===v.type)?.short||'Fahrzeug ansehen')}</small></button>`).join('')}</div>${(t.mobility||[]).length?`<h3>Fahrzeuge für deine eigenen Wege</h3><div class="vehicleList">${t.mobility.map(v=>`<button data-action="navvehicle" data-id="${esc(v.id)}">${esc(v.name)}<small>${v.kind==='scooter'?'E-Scooter · 20 km/h':v.traffic?'Stadtwagen · hält in deiner Nähe an':'Stadtwagen · frei nutzbar'}</small></button>`).join('')}</div>`:''}<div class="actions">${button(s.loaded?'Zum Übergabeort':'Zum Abholort',s.loaded?'navdrop':'navpickup','','secondary')}${button('Zur Stadt','close')}</div>`);if(s.loaded)body.querySelector('[data-action="navdrop"]').onclick=()=>{navigate(m.dropoff);closePanel()};drawMap($('#dialogMap'))}
+function mapPanel(){
+ if(!running)return;const unlocked=bonusUnlocked();
+ panel('NAVIGATION','Dein Weg durch Lindenhafen',`<canvas id="dialogMap" width="760" height="410" aria-label="Stadtplan mit Strassen, Fahrzeugen, ${unlocked?'GCB Pub, ':''}Person und Ziel"></canvas><p class="small">Weiss: du${bonusActive?'':' · Rosa: Abholort'} · Gold: Ziel · Türkis 1–5: Transportfahrzeuge · Blau: Stadtwagen · Violett: E-Scooter${unlocked?' · Goldenes G: GCB Pub':''}. Norden bleibt oben. Die Linie folgt den Strassen. Auf der Karte wird niemand teleportiert.</p>${unlocked?`<h3>Orte in der Stadt</h3><div class="actions">${button('GCB Pub finden','navpub','','secondary')}</div>`:''}<h3>Fahrzeug als Suchziel markieren</h3><div class="vehicleList">${t.cars.map((v,index)=>`<button data-action="navvehicle" data-id="${esc(v.id)}">${index+1}. ${esc(v.name)}<small>${bonusActive?'Für deine Wege durch Lindenhafen':esc(D.offers.find(o=>o.id===v.type)?.short||'Fahrzeug ansehen')}</small></button>`).join('')}</div>${(t.mobility||[]).length?`<h3>Fahrzeuge für deine eigenen Wege</h3><div class="vehicleList">${t.mobility.map(v=>`<button data-action="navvehicle" data-id="${esc(v.id)}">${esc(v.name)}<small>${v.kind==='scooter'?'E-Scooter · 20 km/h':v.traffic?'Stadtwagen · hält in deiner Nähe an':'Stadtwagen · frei nutzbar'}</small></button>`).join('')}</div>`:''}<div class="actions">${bonusActive?button('Zusatzauftrag','bonusjournal','','secondary'):button(s?.loaded?'Zum Übergabeort':'Zum Abholort',s?.loaded?'navdrop':'navpickup','','secondary')}${button('Zur Stadt','close')}</div>`);
+ if(!bonusActive&&s?.loaded)body.querySelector('[data-action="navdrop"]').onclick=()=>{navigate(m.dropoff);closePanel()};drawMap($('#dialogMap'));
+}
 function drawMap(c){
  if(!c||!t)return;
  const g=c.getContext('2d'),w=c.width,h=c.height,mini=c.id==='miniMap',scale=Math.min(w/228,h/220),ox=w/2,oy=h/2;
@@ -11090,17 +11474,20 @@ function drawMap(c){
  const path=target?t.guidance?.path:null;
  if(path?.length){g.strokeStyle='#ffd08d';g.lineWidth=mini?2.5:4;g.lineJoin='round';g.beginPath();path.forEach((q,i)=>g[i?'lineTo':'moveTo'](...p(q.x,q.z)));g.stroke()}
  const dot=(v,size,col)=>{g.fillStyle=col;g.beginPath();g.arc(...p(v.x,v.z),size,0,Math.PI*2);g.fill()};
- dot(m.pickup,mini?3:5,'#f4a3c6');dot(m.dropoff,mini?3:5,'#ffd08d');
+ if(!bonusActive){dot(m.pickup,mini?3:5,'#f4a3c6');dot(m.dropoff,mini?3:5,'#ffd08d');}
  if(target){const [x,y]=p(target.x,target.z);g.strokeStyle='#fff0ba';g.lineWidth=mini?1.5:2;g.beginPath();g.arc(x,y,mini?6:10,0,Math.PI*2);g.stroke()}
  // Every vehicle uses the same neutral marker, regardless of the case answer.
  for(const v of t.mobility||[]){const[x,y]=p(v.x,v.z);g.beginPath();g.arc(x,y,mini?3:5,0,Math.PI*2);g.fillStyle=v.kind==='scooter'?'#c4a2ef':'#7abaf5';g.fill();g.strokeStyle='#142635';g.lineWidth=1;g.stroke();if(!mini){g.fillStyle='#f1f8ff';g.font='bold 11px Arial';g.fillText(v.kind==='scooter'?'S':'P',x+7,y+4)}}
  for(let index=0;index<t.cars.length;index++){const v=t.cars[index],[x,y]=p(v.x,v.z);g.fillStyle='#9cead9';g.strokeStyle='#0b242a';g.lineWidth=1.5;g.fillRect(x-3.5,y-4.5,7,9);g.strokeRect(x-3.5,y-4.5,7,9);g.font=mini?'bold 11px Arial':'bold 13px Arial';g.lineWidth=3;g.strokeStyle='#102835';g.strokeText(String(index+1),x+5,y-5);g.fillStyle='#e6fff5';g.fillText(String(index+1),x+5,y-5)}
+ if(bonusUnlocked()){const [px,py]=p(pubPlace.x,pubPlace.z);g.fillStyle='#d5b978';g.beginPath();g.arc(px,py,mini?7:9,0,Math.PI*2);g.fill();g.fillStyle='#102c25';g.font='bold 14px Arial';g.textAlign='center';g.textBaseline='middle';g.fillText('G',px,py+.5);g.textAlign='left';g.textBaseline='alphabetic';
+ if(!mini){g.fillStyle='#f3d998';g.font='bold 14px Arial';g.fillText('GCB Pub',px+13,py+4)}}
  const a=p(t.x,t.z);g.save();g.translate(...a);g.rotate(t.heading||0);g.beginPath();g.moveTo(0,-7);g.lineTo(5,6);g.lineTo(0,3);g.lineTo(-5,6);g.closePath();g.strokeStyle='#102835';g.lineWidth=2;g.stroke();g.fillStyle='white';g.fill();g.restore();
  g.fillStyle='#e8fff5';g.font='bold 13px Arial';g.fillText('N',8,17);
+ if(mini&&bonusUnlocked()){g.fillStyle='#102835e8';g.fillRect(w-69,h-24,64,20);g.fillStyle='#f3d998';g.font='bold 14px Arial';g.fillText('G · Pub',w-64,h-9)}
 }
 
-function pause(){if(!running)return;A?.pauseMusic();panel('DIENST PAUSIERT','Deine Mission wartet.',`<p>Der laufende Auftrag bleibt während dieser Pause erhalten. Abgeschlossene Missionen werden in diesem Browser gespeichert.</p><div class="actions">${button('Weiterspielen','close')}${button('Auftrag lesen','journal','','secondary')}${button('Karte','map','','secondary')}${button('Mission verlassen','confirmhome','','secondary')}</div>`);body.querySelector('[data-action="confirmhome"]').onclick=()=>panel('MISSION VERLASSEN','Zurück zur Auswahl?',`<p>Die laufende Mission beginnt beim nächsten Start neu. Abgeschlossene Missionen bleiben gespeichert.</p><div class="actions">${button('Zur Auswahl','home')}${button('Weiterspielen','close','','secondary')}</div>`)}
-function home(){A?.pauseMusic();A?.updateVehicle?.(null);A?.setScenePaused?.(false);++loadToken;loading=false;$('#closeDialog').hidden=false;A?.pauseMusic();stopVoice();Drive.pause?.();running=false;modal.close();$('#home').hidden=false;$('#game').hidden=true;document.body.classList.remove('playing');['journalBtn','mapBtn','pauseBtn'].forEach(id=>$('#'+id).hidden=true);renderCards();requestAnimationFrame(()=>window.drawCover?.($('#cover')))}
+function pause(){if(!running)return;if(bonusActive){panel('ZUSATZMISSION PAUSIERT','Deine Entdeckung wartet.',`<div class="actions">${button('Weiter erkunden','bonuscontinue')}${button('Zusatzauftrag','bonusjournal','','secondary')}${button('Karte','map','','secondary')}${button('Transportauswahl','home','','secondary')}</div>`);return;}A?.pauseMusic();panel('DIENST PAUSIERT','Deine Mission wartet.',`<p>Der laufende Auftrag bleibt während dieser Pause erhalten. Abgeschlossene Missionen werden in diesem Browser gespeichert.</p><div class="actions">${button('Weiterspielen','close')}${button('Auftrag lesen','journal','','secondary')}${button('Karte','map','','secondary')}${button('Mission verlassen','confirmhome','','secondary')}</div>`);body.querySelector('[data-action="confirmhome"]').onclick=()=>panel('MISSION VERLASSEN','Zurück zur Auswahl?',`<p>Die laufende Mission beginnt beim nächsten Start neu. Abgeschlossene Missionen bleiben gespeichert.</p><div class="actions">${button('Zur Auswahl','home')}${button('Weiterspielen','close','','secondary')}</div>`)}
+function home(){bonusActive=false;bonusReached=false;target=null;A?.pauseMusic();A?.updateVehicle?.(null);A?.setScenePaused?.(false);++loadToken;loading=false;$('#closeDialog').hidden=false;A?.pauseMusic();stopVoice();Drive.pause?.();running=false;modal.close();$('#home').hidden=false;$('#game').hidden=true;document.body.classList.remove('playing');['journalBtn','mapBtn','pauseBtn'].forEach(id=>$('#'+id).hidden=true);renderCards();requestAnimationFrame(()=>window.drawCover?.($('#cover')))}
 function sources(){panel('H3 TRANSPORTE','Lehrmittel und Lernrahmen',`<p>FaGe 3. Semester · H3 Transporte organisieren. Dieses Spiel übt Entscheidung, Vorbereitung und Kommunikation. Verladung, Sicherung und medizinische Betreuung werden als bestätigte Teamhandlungen abstrahiert.</p>${m.sources.map(q=>`<div class="dataRow"><a href="${esc(q.url)}" target="_blank" rel="noopener">${esc(q.title)}</a><p class="small">${esc(q.status)}</p></div>`).join('')}<p class="small" style="margin-top:16px">Alle Personen, Dienstangebote und Orte sind fiktiv. Keine reale Buchung, keine Spielkonten und keine Ergebnisübertragung an Lehrpersonen. Grafik: eigene Stadt und Bildarbeit, Three.js/Sketchbook MIT sowie CC0-Fahrzeuge, Menschen und einzelne Oberflächen; Nachweise im Spielpaket.</p><div class="actions">${button('Zurück','close')}</div>`)}
 function exportReport(){const record=completed[m.id]||s;const text=['GTA · GESUNDHEIT. TRANSPORT. ABENTEUER.',m.title,m.patient.name+' (fiktiv)',`Abholort: ${m.pickup.label}`,`Ziel: ${m.dropoff.label}`,`Termin: ${m.appointmentTime} · Abholung: ${m.pickupTime}`,`Begleitung: ${m.escort}`,`Rückweg: ${m.returnPlan}`,`Fahrzeug: ${D.offers.find(v=>v.id===m.vehicleType)?.label}`,`Fallhinweis: ${m.vehicleReason}`,`Vorbereitet: ${m.packOptions.filter(p=>(record.prepared||s.pack).includes(p.id)).map(p=>p.label).join(', ')}`,'','MEINE AUSWERTUNG',m.finishReflection,'','Die Simulation bestätigt keine praktische Fahr-, Sicherungs- oder Pflegekompetenz.'].join('\n');const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='GTA_Transportmission_'+m.id+'.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 const keys={KeyW:'gas',ArrowUp:'gas',KeyS:'brake',ArrowDown:'brake',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right',ShiftLeft:'sprint',ShiftRight:'sprint'};
@@ -11123,6 +11510,7 @@ window.addEventListener('keyup',e=>{if(keys[e.code]&&readyWorld)Drive.input(keys
 window.addEventListener('blur',()=>{A?.pauseMusic();stopVoice();if(running&&!modal.open)pause()});document.addEventListener('visibilitychange',()=>{if(document.hidden){A?.pauseMusic();stopVoice();if(running&&!modal.open)pause()}});
 modal.addEventListener('cancel',e=>{e.preventDefault();closePanel()});$('#closeDialog').onclick=closePanel;$('#startBtn').onclick=()=>{A?.unlock();tutorial(true)};$('#helpBtn').onclick=()=>tutorial(false);$('#pauseBtn').onclick=pause;$('#journalBtn').onclick=journal;$('#mapBtn').onclick=mapPanel;$('#miniMapBtn').onclick=mapPanel;$('#objectiveBtn').onclick=journal;$('#contextBtn').onclick=context;$('#exitBtn').onclick=exit;$('#soundBtn').onclick=audioPanel;
 document.querySelectorAll('[data-control]').forEach(b=>{const stop=e=>{e.preventDefault();Drive.input(b.dataset.control,false)};b.onpointerdown=e=>{e.preventDefault();b.setPointerCapture(e.pointerId);Drive.input(b.dataset.control,true)};b.onpointerup=stop;b.onpointercancel=stop;b.onlostpointercapture=stop});
+const homeCaption=$('#home .caption'),homeCaptionBase=homeCaption?.textContent||'';
 $('#soundBtn').textContent='Einstellungen';renderCards();requestAnimationFrame(()=>window.drawCover?.($('#cover')));window.addEventListener('resize',()=>{if(running)Drive.resize();else window.drawCover?.($('#cover'))});
 })();
 </script></body></html>
