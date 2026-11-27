@@ -4,7 +4,7 @@
 
 Kostenlos und ohne Anmeldung. Die Spielseite wird über GitHub Pages bereitgestellt.
 
-V14 ist ein 3D-Lernspiel mit fünf fiktiven Transportmissionen für FaGe H3. Bedarf und Mitgaben klären, ein passendes Transportangebot prüfen, die Person abholen und persönlich übergeben. Alle Personen, Orte, Angebote und Kennzeichen sind fiktiv. Fahrten und Teamhandlungen sind Spielabstraktionen.
+V15 ist ein 3D-Lernspiel mit fünf fiktiven Transportmissionen für FaGe H3. Bedarf und Mitgaben klären, ein passendes Transportangebot prüfen, die Person abholen und persönlich übergeben. Alle Personen, Orte, Angebote und Kennzeichen sind fiktiv. Fahrten und Teamhandlungen sind Spielabstraktionen.
 
 ## Starten
 
@@ -30,6 +30,12 @@ Die Stadt enthält insgesamt 25 Autos, zwölf E-Scooter und 26 Passanten. Die f�
 
 Acht Sprachclips von Elena und Selma wurden in V13 mit neuer Regie aufgenommen. Die übrigen 59 Sprachclips bleiben erhalten; es handelt sich um synthetische Erwachsenenstimmen. Musik, Sprache und Fahrgeräusche sind getrennt regelbar. Bei nicht abspielbaren Clips steht eine Browserstimme als Rückfall bereit. Alle Audiodateien liegen lokal vor. Der Introtext einer Person wird pro Missionszustand automatisch einmal gesprochen und lässt sich bewusst wiederholen.
 
+## Versteckte Zusatzmission: GCB Pub finden
+
+Das bisherige Spiel mit GTA-Startbildschirm und fünf Transportmissionen bleibt erhalten. Sobald alle fünf Fälle abgeschlossen sind, erscheint **Mission 6: Finde das GCB Pub**. Vorher werden diese Bonusaufgabe und ihre Kartenhilfe nicht angezeigt. Auch vorhandene Spielstände mit fünf abgeschlossenen Fällen schalten sie frei.
+
+Die Zusatzmission startet am normalen Stadtstart ohne Patiententransport. Öffne die Karte mit **M** und markiere das Pub. Die Route führt vor die offene Tür; durch das Betreten des Pub wird der Bonus abgeschlossen. Danach kannst du frei weiter erkunden und am Tresen mit **Enter** Burger, Flammkuchen, Pommes oder Salat bestellen. Die Gerichte werden sichtbar serviert. Der Bonus hat einen eigenen Spielstand und verändert weder die fünf Fallabschlüsse noch deren Bewertung.
+
 ## Hafengrafik
 
 Drei unterschiedliche Freizeitboote besitzen ausgeformte Rümpfe, Decks, Verglasung, Reling und Festmacher. Segelyacht, Kabinenboot und offenes Motorboot bewegen sich dezent im blaugrünen Wasser. Details sind materialweise zusammengefasst und werden nach Entfernung ausgeblendet. Die Tageslichtreflexionen bleiben ohne zusätzliche Effekte pro Bild.
@@ -45,6 +51,10 @@ node tests/autorun-v13.test.mjs
 node tests/mobility-v13.test.mjs
 node tests/boats-v14.test.mjs
 node tests/lighting-v14.test.mjs
+node tests/pub-geometry-v15.test.mjs
+node tests/pub-interaction-v15.test.mjs
+node tests/pub-navigation-v15.test.mjs
+node tests/pub-bonus-v15.test.mjs
 ```
 
 Der Build erzeugt `dist/index.html` und zusätzlich die grosse optionale Einzeldatei `Hafenroute_H3.html` im Projektordner. Diese Einzeldatei ist nicht Teil des Repository-Pakets. Weitere portable Prüfungen liegen in `tests/`, der Audiotest in `Entwicklung/audio.test.mjs`. Tests mit Three.js-CPU-Mathematik ersetzen keine Sicht-, Hör- oder GPU-Prüfung auf jedem Endgerät. Die Echtzeitgrafik und Bildrate sind geräte- und szenenabhängig.

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#102f29">
+  <title>GCB Pub · Begehbarer Entwurf</title>
+  <style>
+    :root{color-scheme:dark;--ink:#f5efe0;--muted:#d0c9b7;--green:#123e32;--gold:#d5b978;--border:#c6ab674f;--panel:#10271fea}
+    *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#0c1814;color:var(--ink);font:16px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    button{font:inherit;cursor:pointer;color:inherit}button:focus-visible,canvas:focus-visible{outline:3px solid #f3d58d;outline-offset:3px}button:disabled{cursor:default;opacity:.55}[hidden]{display:none!important}
+    #city{display:block;width:100%;height:100%;outline:none;touch-action:none}
+    .masthead{position:absolute;top:0;left:0;right:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 24px;background:linear-gradient(#0e241ff5,#0e241fd9);border-bottom:1px solid var(--border)}
+    .brand{display:flex;align-items:center;gap:14px}.crest{height:46px;width:46px;border:1px solid var(--gold);border-radius:50%;display:grid;place-items:center;font:700 15px Georgia,serif;color:var(--gold)}
+    h1{margin:0;font:700 clamp(24px,3vw,34px)/1 Georgia,"Times New Roman",serif;letter-spacing:.02em;color:#f3deb0}.draft{margin-top:5px;color:var(--muted);font-size:14px;letter-spacing:.055em}
+    .views{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.views button,.close{border:1px solid var(--border);border-radius:8px;background:#193d32e8;min-height:42px;padding:8px 14px}.views button:hover,.close:hover{background:#28503f}.views button.active{color:#142d22;background:var(--gold);border-color:var(--gold)}
+    .place{position:absolute;top:109px;left:24px;max-width:min(340px,calc(100% - 48px));padding:10px 16px;border-left:3px solid var(--gold);background:var(--panel);border-radius:0 8px 8px 0;font-size:14px;pointer-events:none}.place strong{display:block;color:#efd798;font-size:16px}.place span{color:var(--muted)}
+    .lower{position:absolute;bottom:max(20px,env(safe-area-inset-bottom));left:24px;right:24px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;z-index:2;pointer-events:none}
+    .interaction{max-width:470px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 17px;pointer-events:auto}.interaction p{margin:0;color:#ebe1c7}.interaction .keys{margin-top:9px;color:var(--muted);font-size:14px}kbd{display:inline-block;border:1px solid #dfd0a47a;border-radius:4px;padding:1px 5px;font:inherit;color:#f6e8bf;background:#244438}
+    .order-trigger{display:block;border:0;border-radius:8px;background:var(--gold);color:#192f25;font-weight:700;min-height:44px;width:100%;margin-top:12px;padding:9px 14px}
+    .touch{display:grid;grid-template-columns:repeat(4,48px);gap:7px;pointer-events:auto}.touch button{width:48px;height:48px;border:1px solid #d7bc7466;border-radius:10px;background:var(--panel);font-weight:700;font-size:23px;touch-action:none;user-select:none}.touch button:active{background:#396649}
+    .veil{position:absolute;inset:0;z-index:5;display:grid;place-items:center;background:#06120c75;padding:20px}.loading-card{max-width:390px;text-align:center;padding:28px;border:1px solid var(--border);border-radius:16px;background:#10271ff2}.loading-card strong{display:block;font:700 29px Georgia,serif;color:#f2d597}.loading-card p{margin-bottom:0;color:var(--muted)}
+    .spinner{width:32px;height:32px;border:2px solid #d5b97830;border-top-color:var(--gold);border-radius:50%;margin:0 auto 20px;animation:spin 1.2s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+    .menu-card{width:min(540px,100%);max-height:min(760px,calc(100dvh - 40px));overflow:auto;border:1px solid #c6ab6780;border-radius:18px;background:#10271ff8;box-shadow:0 20px 70px #0008;padding:24px}.menu-head{display:flex;align-items:center;justify-content:space-between;gap:16px}.menu-head h2{margin:0;font:700 32px Georgia,serif;color:#f2d597}.menu-head small{display:block;font-size:14px;color:var(--muted);margin-bottom:6px}.close{padding:6px 11px;font-size:22px;min-width:42px}.greeting{color:#eee1c4;margin:15px 0 18px}.meals{display:grid;gap:9px}.meal{padding:13px 16px;min-height:68px;border:1px solid #bba0645e;border-radius:10px;text-align:left;background:#1b3e31}.meal:hover,.meal:focus-visible{background:#2d5140}.meal strong{display:block;color:#f6e9ca;font-size:18px}.meal span{font-size:14px;color:#c8cbb9}.menu-help{font-size:14px;color:var(--muted);margin:17px 0 0}.paused-note{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:12px 22px;border-radius:10px;background:var(--panel);border:1px solid var(--border);font-size:20px;pointer-events:none}
+    @media(max-width:660px){.masthead{padding:12px 14px;gap:9px;align-items:flex-start}.brand{gap:8px}.crest{height:34px;width:34px;font-size:14px}h1{font-size:25px}.draft{font-size:14px;max-width:170px}.views{gap:5px;max-width:230px}.views button{padding:7px 9px;min-height:36px;font-size:14px}.place{top:106px;left:14px;max-width:280px;font-size:14px;padding:8px 12px}.place strong{font-size:15px}.lower{left:14px;right:14px;bottom:14px;flex-direction:column;align-items:stretch;gap:9px}.interaction{max-width:none;padding:11px 13px;font-size:14px}.interaction .keys{font-size:14px;margin-top:6px}.touch{align-self:center;grid-template-columns:repeat(4,46px);gap:9px}.touch button{width:46px;height:46px}.menu-card{padding:20px}.menu-head h2{font-size:28px}}
+    @media(max-width:380px){.masthead{flex-direction:column;align-items:stretch}.brand{align-self:flex-start}.draft{max-width:none}.views{max-width:none;justify-content:flex-start}.views button{flex:1}.place{top:154px;max-width:calc(100% - 28px)}.interaction .keys{display:none}}
+    @media(prefers-reduced-motion:reduce){.spinner{animation:none}}
+  </style>
+</head>
+<body>
+  <canvas id="city" tabindex="0" aria-label="Begehbarer Entwurf des GCB Pub"></canvas>
+  <header class="masthead">
+    <div class="brand"><div class="crest" aria-hidden="true">GCB</div><div><h1>GCB Pub</h1><div class="draft">Entwurf · noch nicht veröffentlicht</div></div></div>
+    <nav class="views" aria-label="Pub erkunden">
+      <button type="button" id="outsideBtn" disabled>Vor dem Pub</button>
+      <button type="button" id="insideBtn" disabled>Innenraum</button>
+      <button type="button" id="pauseBtn" aria-pressed="false" disabled>Pause</button>
+    </nav>
+  </header>
+  <div class="place"><strong id="locationName">Am Quai</strong><span id="locationHint">Das Pub wird vorbereitet.</span></div>
+  <div class="lower">
+    <section class="interaction" aria-label="Bedienung">
+      <p id="waiterLine" aria-live="polite">Die Tür steht offen. Komm herein und schau dich um.</p>
+      <p class="keys"><kbd>↑</kbd> gehen · <kbd>←</kbd> <kbd>→</kbd> drehen · Maus ziehen: umsehen</p>
+      <button id="orderTrigger" type="button" class="order-trigger" hidden><kbd>Enter</kbd> Beim Kellner bestellen</button>
+    </section>
+    <div class="touch" aria-label="Bewegung">
+      <button type="button" data-move="left" aria-label="Links drehen">◀</button>
+      <button type="button" data-move="right" aria-label="Rechts drehen">▶</button>
+      <button type="button" data-move="brake" aria-label="Rückwärts gehen">▼</button>
+      <button type="button" data-move="gas" aria-label="Vorwärts gehen">▲</button>
+    </div>
+  </div>
+  <div id="loading" class="veil" role="status"><div class="loading-card"><div class="spinner" aria-hidden="true"></div><strong>Dein Pub wird vorbereitet.</strong><p id="loadingText">Einrichtung, Figuren und Materialien werden geladen.</p></div></div>
+  <div id="pauseNote" class="paused-note" hidden>Pause · Esc zum Fortsetzen</div>
+  <div id="menuOverlay" class="veil" hidden>
+    <section id="foodMenu" class="menu-card" role="dialog" aria-modal="true" aria-labelledby="menuTitle" aria-describedby="menuGreeting" tabindex="-1">
+      <div class="menu-head"><div><small>FRISCH AUS DER PUB-KÜCHE</small><h2 id="menuTitle">Was darf’s sein?</h2></div><button id="closeMenu" class="close" type="button" aria-label="Speisekarte schliessen">×</button></div>
+      <p id="menuGreeting" class="greeting">Kellner: «Schön, dass du da bist. Such dir etwas aus!»</p>
+      <div class="meals">
+        <button type="button" class="meal" data-food="burger"><strong>Pub-Burger</strong><span>Im Brioche-Bun mit knackigem Salat.</span></button>
+        <button type="button" class="meal" data-food="flammkuchen"><strong>Flammkuchen</strong><span>Knusprig und frisch aus dem Ofen.</span></button>
+        <button type="button" class="meal" data-food="fries"><strong>Pommes</strong><span>Goldbraun gebacken, mit einem Dip.</span></button>
+        <button type="button" class="meal" data-food="salad"><strong>Salatteller</strong><span>Bunter Blattsalat mit frischem Gemüse.</span></button>
+      </div>
+      <p class="menu-help"><kbd>↑</kbd> <kbd>↓</kbd> auswählen · <kbd>Enter</kbd> bestellen · <kbd>Esc</kbd> schliessen<br>Dein Gericht wird direkt auf dem Tresen serviert.</p>
+    </section>
+  </div>
+  <!--ENGINE-->
+  <script>/*ADDONS*/</script>
+  <script>/*ASSETS*/</script>
+  <script>window.GCB_PUB_DRAFT=true;/*GAME*/</script>
+</body>
+</html>

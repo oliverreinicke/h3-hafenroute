@@ -29,7 +29,7 @@ engine='<script>window.THREE=(function(){const __core='+core+';return '+webgl+';
 addons='\n'.join(addon(*args) for args in [('BufferGeometryUtils.js','GeometryTools','toTrianglesDrawMode,mergeGeometries'),('SkeletonUtils.js','SkeletonTools','clone'),('GLTFLoader.js','AssetLoader','GLTFLoader')])
 licence=(dist/'vendor/LICENSE-Three.txt').read_text()+'\n'+(root/'ASSET-LICENSES.txt').read_text()+'\n'+(root/'vendor/LICENSE-Sketchbook.txt').read_text()
 page=read('ui.html').replace('/*STYLES*/',read('style.css')).replace('<!--ENGINE-->',engine).replace('<!--CREDITS-->','<!--\n'+licence.replace('--','–')+'\n-->').replace('/*ADDONS*/',addons)
-game='\n;\n'.join(read(f) for f in ['texturen.js','menschen.js','keyart.js','stadt.js','fahrzeuge.js','mobilitaet.js','verkehr.js','leistung.js','fahrt.js','missions.js','rules.js','navigation.js','gespraeche.js','audio.js','app.js'])
+game='\n;\n'.join(read(f) for f in ['texturen.js','menschen.js','keyart.js','pub.js','stadt.js','fahrzeuge.js','mobilitaet.js','verkehr.js','leistung.js','fahrt.js','missions.js','rules.js','navigation.js','gespraeche.js','audio.js','app.js'])
 page=page.replace('/*GAME*/',game)
 (dist/'index.html').write_text(page.replace('/*ASSETS*/','window.cityAsset=name=>"assets/"+name;'))
 assets={p.name:'data:'+({'.jpg':'image/jpeg','.png':'image/png','.webp':'image/webp','.mp3':'audio/mpeg','.m4a':'audio/mp4','.wav':'audio/wav','.glb':'model/gltf-binary'}[p.suffix])+';base64,'+base64.b64encode(p.read_bytes()).decode() for p in sorted((dist/'assets').iterdir()) if p.suffix in ['.jpg','.png','.webp','.mp3','.m4a','.wav','.glb']}

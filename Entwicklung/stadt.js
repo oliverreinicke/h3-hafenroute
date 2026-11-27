@@ -6,6 +6,7 @@ window.makeCity = function makeCity(T, scene) {
   const pick = a => a[Math.floor(rand()*a.length)];
   const PI=Math.PI, TAU=2*PI, blocks=[], dynamic=[];
   const root=new T.Group(); scene.add(root);
+  let pub=null;
   const roadX=[-80,-24,32,88], roadZ=[-84,-28,28,84];
   const targets=[{x:-88,z:-52},{x:24,z:-46},{x:77,z:54},{x:-31,z:54},{x:-31,z:-52}];
   const bounds={minX:-99,maxX:100,minZ:-100,maxZ:100};
@@ -295,12 +296,17 @@ window.makeCity = function makeCity(T, scene) {
   let shopNo=0;
   function shop(x,z,w,d,levels,theme,a,opts={}){
     const h=3.7+levels*3.04, col=new T.Color(facePalettes[theme][0]).getHex();
+    const isPub=!!(opts.pub&&window.GCBPub?.create);
     const trim=pick([0xd8d8cf,0xe2ded2,0xc9d4ce]),accent=opts.accent||pick([aqua,peach,orchid,gold]);
     const nx=Math.sin(a),nz=Math.cos(a),tx=Math.cos(a),tz=-Math.sin(a);
     const depth=(Math.abs(nx)>.5?w:d)/2, width=Math.abs(nx)>.5?d:w;
     const u=(along,out,y)=>[x+tx*along+nx*(depth+out),y,z+tz*along+nz*(depth+out)];
     const b=(along,out,y,sw,sh,sd,c,mat=clay)=>box(...u(along,out,y),sw,sh,sd,c,a,mat);
-    box(x,h/2,z,w-2.4,h,d-2.4,0x59625e);block(x,z,w,d);shadowShells.push([x,h/2,z,w,h,d]);
+    if(isPub){
+      // Keep the existing upper storey while the ground floor becomes a real room.
+      const upperBase=3.65,upperHeight=h-upperBase,upperY=(h+upperBase)/2;
+      box(x,upperY,z,w-2.4,upperHeight,d-2.4,0x59625e);shadowShells.push([x,upperY,z,w,upperHeight,d]);
+    }else{box(x,h/2,z,w-2.4,h,d-2.4,0x59625e);block(x,z,w,d);shadowShells.push([x,h/2,z,w,h,d]);}
     addFacades(x,z,w,d,3.65,h-3.65,theme);
     box(x,h-.08,z,w+.42,.35,d+.42,trim);
     box(x,h+.19,z,w+.68,.13,d+.68,0xaeb5b1);
@@ -321,6 +327,11 @@ window.makeCity = function makeCity(T, scene) {
       }
     }
     const title=opts.name||shopNames[shopNo++%shopNames.length];
+    if(isPub){
+      // Consume the same historical awning colour draw, without adding a fake shop front.
+      if(levels<4)pick([0xb46671,0x719d97,0xc3906e]);
+      pub=window.GCBPub.create(T,root,{x,z,w,d});blocks.push(...pub.blocks);return;
+    }
     const doorW=width*.19;
     b(0,-.98,1.48,width-.5,2.89,.04,0xffffff,roomMats[theme%4]);
     // Small shop interiors sit behind the glazing and in front of the recessed shell.
@@ -385,7 +396,7 @@ window.makeCity = function makeCity(T, scene) {
   for(const z of [-90,-15,33,83]){
     if(Math.abs(z+53)<17)continue;
     // Small kiosks leave a generous space for the waterfront promenade.
-    shop(-95,z,6.2,8,1,pick([0,1,2]),PI/2);
+    shop(-95,z,6.2,8,1,pick([0,1,2]),PI/2,{pub:z===-15});
   }
   for(const [i,z] of [-69,-36,-2,34,75].entries())shop(112,z,15,between(16,24),4+i%3,(i+2)%6,-PI/2);
   for(const sign of [-1,1])for(const [i,x] of [-52,-8,17,57,88].entries())shop(x,sign*109,between(14,22),15,2+i%3,(i+3)%6,sign===1?PI:0);
@@ -991,7 +1002,7 @@ window.makeCity = function makeCity(T, scene) {
   }
   label('WOHNEN AM PARK','ABHOLZONE','#26484e','#ddfff0',7.2,.8,-37,3.6,54,Math.PI/2);
   label('REHA UFERBLICK','PATIENTENEMPFANG','#3b415b','#fff0cf',7.2,.8,-37,3.6,-52,Math.PI/2);
-  return {blocks,targets,spawn,carSpawn,bounds,parkedCars,pedestrians,
-    update(dt,time,viewerPosition){if(viewerPosition&&Number.isFinite(viewerPosition.x)&&Number.isFinite(viewerPosition.z)){observer.x=viewerPosition.x;observer.z=viewerPosition.z;}const t=Number.isFinite(time)?time:0;waterMat.uniforms.t.value=t;for(const f of dynamic)f(t);}
+  return {blocks,targets,spawn,carSpawn,bounds,parkedCars,pedestrians,pub,
+    update(dt,time,viewerPosition){if(viewerPosition&&Number.isFinite(viewerPosition.x)&&Number.isFinite(viewerPosition.z)){observer.x=viewerPosition.x;observer.z=viewerPosition.z;}const t=Number.isFinite(time)?time:0;waterMat.uniforms.t.value=t;for(const f of dynamic)f(t);pub?.update(dt,t,viewerPosition);}
   };
 };

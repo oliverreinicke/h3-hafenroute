@@ -18,6 +18,8 @@ window.Drive = (() => {
   const drawStats={mainCalls:0,shadowCalls:0,skinMainCalls:0,skinShadowCalls:0,mainTriangles:0,shadowTriangles:0,skinMainTriangles:0,skinShadowTriangles:0,physicsCpuMs:0,actorsCpuMs:0,renderCpuMs:0,telemetryCpuMs:0};
   let mission=null,target=null,patient=null,passengerPresent=false,delivered=false,collisionCount=0,travelDistance=0,lastCollision=-10,onAction=null,lastInfo=null,firstPerson=false;
   let traffic=null,pendingExit=null,pendingEnter=null,walkRunTime=0;const trafficBlockers=[];
+  let pubCameraBlend=0,pubOrder=null;
+  const pubFoodIds=new Set(['burger','flammkuchen','fries','salad']);
   const FLEET=[
     {id:'taxi',type:'taxi',name:'Taxi Lindenhafen',position:[-82.5,12.6,0,0xd9b557]},
     {id:'volunteer',type:'volunteer',name:'Freiwilliger Fahrdienst',position:[-75,-39,0,0x5d9b91]},
@@ -377,11 +379,14 @@ window.Drive = (() => {
     const az=[-84,-28,28,84].reduce((a,b)=>Math.abs(a-p.z)<Math.abs(b-p.z)?a:b);
     return Math.abs(ax-p.x)<Math.abs(az-p.z)?{x:ax+1.6,z:p.z}:{x:p.x,z:az+1.6};
   }
-  function groundHeight(x,z){return [-80,-24,32,88].some(a=>Math.abs(a-x)<6)||[-84,-28,28,84].some(a=>Math.abs(a-z)<6)?-.09:-.17;}
-  function clearAt(x,z,r){
+  function inPub(x,z){return !!city?.pub?.contains(x,z);}
+  function nearPubCounter(){const p=pieces?.char?.position,q=city?.pub?.counter;return mode==='walk'&&p&&q&&inPub(p.x,p.z)&&Math.hypot(p.x-q.x,p.z-q.z)<1.7;}
+  function groundHeight(x,z){if(inPub(x,z))return city.pub.floorY??-.17;return [-80,-24,32,88].some(a=>Math.abs(a-x)<6)||[-84,-28,28,84].some(a=>Math.abs(a-z)<6)?-.09:-.17;}
+  function clearAt(x,z,r,cameraProbe=false){
     const b=city.bounds;
     if(x<b.minX+r||x>b.maxX-r||z<b.minZ+r||z>b.maxZ-r)return false;
     for(const wall of city.blocks){
+      if(cameraProbe&&wall.cameraBlocking===false)continue;
       const dx=x-clamp(x,wall.minX,wall.maxX), dz=z-clamp(z,wall.minZ,wall.maxZ);
       if(dx*dx+dz*dz<r*r)return false;
     }
@@ -477,13 +482,14 @@ window.Drive = (() => {
     if(!pieces)return null;const p=(mode==='walk'?pieces.char:pieces.vehicle).position,n=mode==='walk'?closestCar():null;
     if(target?.id){const v=fleet.find(v=>v.id===target.id)||traffic?.getVehicles?.().find(v=>v.id===target.id);if(v){target.x=v.root?v.root.position.x:v.x;target.z=v.root?v.root.position.z:v.z;}}
     const point=car.root.position,pickupDistance=mission?Math.hypot(point.x-mission.pickup.x,point.z-mission.pickup.z):Infinity,dropoffDistance=mission?Math.hypot(point.x-mission.dropoff.x,point.z-mission.dropoff.z):Infinity;
-    const info={exitPending:!!pendingExit,enterPending:!!pendingEnter,autoRunning:mode==='walk'&&walkRunTime>=2,stationary:Math.abs(velocity)<.02,mode,x:p.x,z:p.z,heading:mode==='walk'?characterHeading:vehicleHeading,viewHeading:Number.isFinite(viewHeading)?viewHeading:wrap((mode==='walk'?characterHeading:vehicleHeading)+orbit),speed:Math.round(Math.abs(mode==='car'?velocity:footSpeed)*3.6),vehicleId:car.id,vehicleType:car.type,vehicleName:car.spec.name,vehicleKind:car.kind||'car',civilVehicle:!!car.civil,nearVehicle:n?{id:n.id,type:n.type,name:n.spec?.name||n.name,kind:n.kind||'car',civil:!!n.civil,traffic:!!n.traffic,speed:n.speed||0}:null,nearPatient:!!closestPerson(),nearCitizen:closestCitizen(),pickupDistance,dropoffDistance,passengerPresent,delivered,atTarget:!!target&&targetDistance()<(mode==='car'?12:3.8),distance:targetDistance(),targetX:target?.x,targetZ:target?.z,targetId:target?.id,cars:fleet.filter(f=>!f.civil).map(f=>({id:f.id,type:f.type,name:f.spec.name,x:f.root.position.x,z:f.root.position.z})),mobility:fleet.filter(f=>f.civil).map(f=>({id:f.id,type:f.type,kind:f.kind,civil:true,name:f.spec.name,x:f.root.position.x,z:f.root.position.z})).concat(traffic?.getVehicles?.()||[]),roads:{x:[-80,-24,32,88],z:[-84,-28,28,84]},collisionCount,travelDistance,firstPerson:mode==='car'&&firstPerson,missionId:mission?.id};info.guidance=navigation?.getGuidance(info,target);info.performance=getPerformance();return info;
+    const info={exitPending:!!pendingExit,enterPending:!!pendingEnter,autoRunning:mode==='walk'&&!inPub(p.x,p.z)&&walkRunTime>=2,stationary:Math.abs(velocity)<.02,mode,x:p.x,z:p.z,heading:mode==='walk'?characterHeading:vehicleHeading,viewHeading:Number.isFinite(viewHeading)?viewHeading:wrap((mode==='walk'?characterHeading:vehicleHeading)+orbit),speed:Math.round(Math.abs(mode==='car'?velocity:footSpeed)*3.6),vehicleId:car.id,vehicleType:car.type,vehicleName:car.spec.name,vehicleKind:car.kind||'car',civilVehicle:!!car.civil,nearVehicle:n?{id:n.id,type:n.type,name:n.spec?.name||n.name,kind:n.kind||'car',civil:!!n.civil,traffic:!!n.traffic,speed:n.speed||0}:null,nearPatient:!!closestPerson(),nearCitizen:closestCitizen(),pickupDistance,dropoffDistance,passengerPresent,delivered,atTarget:!!target&&targetDistance()<(mode==='car'?12:3.8),distance:targetDistance(),targetX:target?.x,targetZ:target?.z,targetId:target?.id,cars:fleet.filter(f=>!f.civil).map(f=>({id:f.id,type:f.type,name:f.spec.name,x:f.root.position.x,z:f.root.position.z})),mobility:fleet.filter(f=>f.civil).map(f=>({id:f.id,type:f.type,kind:f.kind,civil:true,name:f.spec.name,x:f.root.position.x,z:f.root.position.z})).concat(traffic?.getVehicles?.()||[]),roads:{x:[-80,-24,32,88],z:[-84,-28,28,84]},collisionCount,travelDistance,firstPerson:mode==='car'&&firstPerson,missionId:mission?.id,pubLocation:inPub(p.x,p.z)?'inside':'outside',nearPubCounter:!!nearPubCounter(),pubOrderState:pubOrder?.state||'idle',pubOrderItem:pubOrder?.item||null};info.guidance=navigation?.getGuidance(info,target);info.performance=getPerformance();return info;
   }
 
   function broadcast(){lastInfo=getInfo();navigation?.update(lastInfo,target);report?.(lastInfo);}
 
   function interact(){
     if(mode==='walk'&&closestPerson()){onAction?.({kind:'patient'});return;}
+    if(nearPubCounter()){onAction?.({kind:'pub-order'});return;}
     const i=getInfo();if(mission&&passengerPresent&&i.dropoffDistance<12&&Math.abs(velocity)<.02){onAction?.({kind:'destination'});return;}
     if(mission&&!passengerPresent&&!delivered&&mode==='car'&&i.pickupDistance<12&&Math.abs(velocity)<.02){onAction?.({kind:'patient'});return;}
     if(mode==='walk'){const v=closestCar();if(v)onAction?.({kind:'vehicle',vehicleId:v.id,type:v.type});}
@@ -508,12 +514,13 @@ window.Drive = (() => {
     return frameControls;
   }
   function stepPerson(dt){
-    const {turn,gas,brake}=controls(dt),forward=Number(gas)-Number(brake),running=keys.sprint||walkRunTime>=2,turnRate=turn*(running?2.65:2.32);
+    const indoor=inPub(pieces.char.position.x,pieces.char.position.z);
+    const {turn,gas,brake}=controls(dt),forward=Number(gas)-Number(brake),running=!indoor&&(keys.sprint||walkRunTime>=2),turnRate=turn*(running?2.65:2.32);
     characterHeading=wrap(characterHeading+turnRate*dt);
     // Keep the V7 recenter guard alive while the damped follow-camera settles.
     walkingTurnVelocity=turnRate||walkingTurnVelocity*(1-smooth(dt,11));
     if(!turn&&Math.abs(walkingTurnVelocity)<.005)walkingTurnVelocity=0;
-    const targetSpeed=forward*(forward<0?1.45:running?5.55:2.23);
+    const targetSpeed=forward*(forward<0?1.45:running?5.55:indoor?1.65:2.23);
     footSpeed+=(targetSpeed-footSpeed)*smooth(dt,forward?7.5:11);
     if(!forward&&Math.abs(footSpeed)<.015)footSpeed=0;
     const p=pieces.char.position,nx=p.x+Math.sin(characterHeading)*footSpeed*dt,nz=p.z-Math.cos(characterHeading)*footSpeed*dt;
@@ -525,7 +532,7 @@ window.Drive = (() => {
     walkVelocityX=dt>0?(p.x-fromX)/dt:0;walkVelocityZ=dt>0?(p.z-fromZ)/dt:0;
     walkingTravelSpeed=dt>0?Math.sign(footSpeed)*Math.hypot(p.x-fromX,p.z-fromZ)/dt:0;
     const movedForward=dt>0?((p.x-fromX)*Math.sin(characterHeading)-(p.z-fromZ)*Math.cos(characterHeading))/dt:0;
-    walkRunTime=forward>0&&movedForward>.35?walkRunTime+dt:0;
+    walkRunTime=!indoor&&forward>0&&movedForward>.35?walkRunTime+dt:0;
     pieces.char.rotation.y=-characterHeading;p.y+=(groundHeight(p.x,p.z)-p.y)*smooth(dt,22);
     movedThisFrame ||= Math.hypot(p.x-fromX,p.z-fromZ)>.0001;
   }
@@ -566,6 +573,10 @@ window.Drive = (() => {
   }
   function cameraStep(dt,renderHeading){
     const driving=mode==="car",base=(driving?pieces.vehicle:pieces.char).position,heading=renderHeading??(driving?vehicleHeading:characterHeading);
+    const pubView=!driving&&inPub(base.x,base.z)?1:0;
+    pubCameraBlend=dt>0?pubCameraBlend+(pubView-pubCameraBlend)*smooth(dt,8):pubView;
+    if(Math.abs(pubCameraBlend-pubView)<.0005)pubCameraBlend=pubView;
+    const desiredFov=54+8*pubCameraBlend;if(Math.abs(camera.fov-desiredFov)>.02||pubCameraBlend===pubView&&camera.fov!==desiredFov){camera.fov=desiredFov;camera.updateProjectionMatrix();}
     idleOrbit=Math.max(0,idleOrbit-dt);
     // Explicit keyboard turns own camera yaw, including their smoothed run-out.
     // Recentring a large opposite mouse offset here would reverse the requested turn.
@@ -579,19 +590,19 @@ window.Drive = (() => {
     const targetYaw=wrap(heading+orbit);
     if(!Number.isFinite(cameraYaw)||drag)cameraYaw=targetYaw;
     else if(dt>0)cameraYaw=wrap(cameraYaw+wrap(targetYaw-cameraYaw)*smooth(dt,driving?14:11));
-    const scooting=driving&&car.kind==='scooter',yaw=cameraYaw,dist=driving&&!scooting?5.95+Math.abs(velocity)*.065:4.35,lookY=base.y+(driving&&!scooting?1.04:1.40);
+    const scooting=driving&&car.kind==='scooter',yaw=cameraYaw,dist=driving&&!scooting?5.95+Math.abs(velocity)*.065:4.35-pubCameraBlend*2,lookY=base.y+(driving&&!scooting?1.04:1.40);
     let arm=dist,lastFree=0;
     const rayX=-Math.sin(yaw)*Math.cos(pitch),rayZ=Math.cos(yaw)*Math.cos(pitch);
     // Keep the last actually free camera point; a minimum boom length can put
     // the camera through a nearby wall even though the avatar itself is clear.
     for(let s=.14;s<dist+.28;s+=.28){
       const probe=Math.min(s,dist);
-      if(!clearAt(base.x+rayX*probe,base.z+rayZ*probe,.15)){arm=lastFree;break;}
+      if(!clearAt(base.x+rayX*probe,base.z+rayZ*probe,.15,true)){arm=lastFree;break;}
       lastFree=probe;if(probe===dist)break;
     }
     if(cameraArm>0&&arm>cameraArm)cameraArm=dt>0?cameraArm+(arm-cameraArm)*smooth(dt,8):cameraArm;else cameraArm=arm;
     // A smoothed point can differ from the ray samples after a camera turn.
-    while(cameraArm>0&&!clearAt(base.x+rayX*cameraArm,base.z+rayZ*cameraArm,.15))cameraArm=Math.max(0,cameraArm-.1);
+    while(cameraArm>0&&!clearAt(base.x+rayX*cameraArm,base.z+rayZ*cameraArm,.15,true))cameraArm=Math.max(0,cameraArm-.1);
     arm=cameraArm;
     let eyeY=lookY+Math.sin(pitch)*arm+(driving?.48:.16),aimY=lookY+.08;
     if(!driving&&arm<1.8){
@@ -615,6 +626,7 @@ window.Drive = (() => {
         eyeY+=(Math.max(eyeY,closeEye)-eyeY)*blend;aimY+=(closeAim-aimY)*blend;
       }
     }
+    if(pubView)eyeY=Math.min(eyeY,(city.pub.floorY??-.17)+2.85);
     camera.position.set(base.x-Math.sin(yaw)*arm*Math.cos(pitch),eyeY,base.z+Math.cos(yaw)*arm*Math.cos(pitch));
     camera.lookAt(base.x+Math.sin(yaw)*.88,aimY,base.z-Math.cos(yaw)*.88);camera.getWorldDirection(cameraForward);viewHeading=Math.atan2(cameraForward.x,-cameraForward.z);
   }
@@ -641,6 +653,7 @@ window.Drive = (() => {
     let root=mode==='car'?pieces.vehicle:pieces.char;if(!previousPose)syncPose();
     while(accumulator+1e-10>=FIXED_STEP){previousPose.x=root.position.x;previousPose.y=root.position.y;previousPose.z=root.position.z;previousPose.heading=mode==='car'?vehicleHeading:characterHeading;if(mode==='walk')stepPerson(FIXED_STEP);else stepCar(FIXED_STEP);updateTraffic(FIXED_STEP);clock+=FIXED_STEP;accumulator-=FIXED_STEP;}
     processRequests();root=mode==='car'?pieces.vehicle:pieces.char;
+    if(pubOrder?.state==='preparing'&&clock>=pubOrder.readyAt){city.pub?.setOrder(pubOrder.item);pubOrder.state='served';broadcast();}
     if(diagnosticFrames)drawStats.physicsCpuMs=performance.now()-cpuStart;const actorStart=diagnosticFrames?performance.now():0;
     const now=clock+accumulator;city.update?.(dt,now,root.position);if(mode==='walk')animatePerson(dt);patient?.actor.update(dt,0);patient?.teamActor?.update(dt,0);
     if(diagnosticFrames)drawStats.actorsCpuMs=performance.now()-actorStart;
@@ -673,7 +686,7 @@ window.Drive = (() => {
     for(const r of [...geometries,...materials,...textures])r.dispose?.();patient=null;
   }
   async function ready(){
-    if(!renderer)return;const current=renderer;const tasks=[person?.actor?.promise,patient?.actor?.promise,patient?.teamActor?.promise,...(city?.pedestrians||[]).map(n=>n.actor?.promise),...fleet.map(v=>v.ready||v.root.userData.readyPromise)].filter(Boolean);await Promise.allSettled(tasks);await window.cityTextureReady?.();if(renderer!==current)return;
+    if(!renderer)return;const current=renderer;const tasks=[city?.pub?.ready,person?.actor?.promise,patient?.actor?.promise,patient?.teamActor?.promise,...(city?.pedestrians||[]).map(n=>n.actor?.promise),...fleet.map(v=>v.ready||v.root.userData.readyPromise)].filter(Boolean);await Promise.allSettled(tasks);await window.cityTextureReady?.();if(renderer!==current)return;
     updateShadow();
     if(probeTarget&&!environmentReady){
       // A gameplay target is not part of the waterfront and must not tint paint or glass green.
@@ -685,7 +698,7 @@ window.Drive = (() => {
     installDrawDiagnostics();if(renderer.isWebGLRenderer&&renderer.compileAsync)await renderer.compileAsync(scene,camera);renderer.render(scene,camera);perf?.reset();
   }
   function reset(){
-    stop();navigation?.dispose();navigation=null;traffic?.dispose();traffic=null;trafficBlockers.length=0;if(!renderer)return;disposePatient();person?.actor?.dispose?.();for(const npc of(city?.pedestrians||[]))npc.actor?.dispose?.();
+    stop();pubOrder=null;pubCameraBlend=0;navigation?.dispose();navigation=null;traffic?.dispose();traffic=null;trafficBlockers.length=0;if(!renderer)return;disposePatient();city?.pub?.dispose?.();person?.actor?.dispose?.();for(const npc of(city?.pedestrians||[]))npc.actor?.dispose?.();
     sizeObserver?.disconnect();sizeObserver=null;
     for(const [event,fn] of [["pointerdown",pointerDown],["pointermove",pointerMove],["pointerup",pointerEnd],["pointercancel",pointerEnd],["lostpointercapture",pointerEnd],["webglcontextlost",handleLoss]])canvas.removeEventListener(event,fn);
     const geometries=new Set(),materials=new Set(),textures=new Set();
@@ -704,8 +717,13 @@ window.Drive = (() => {
   }
   function resume(){if(!renderer)return;pause();active=true;perf?.setActive(true);last=null;reportTime=clock;syncPose();cameraStep(0);broadcast();raf=requestAnimationFrame(tick);}
   function setTarget(value){target=value?{...value}:null;if(marker){marker.root.visible=!!target;if(target)marker.root.position.set(target.x,0,target.z);}broadcast();}
+  function clearMission(){
+    if(!renderer)return false;
+    pause();disposePatient();mission=target=null;passengerPresent=delivered=false;collisionCount=travelDistance=0;lastCollision=-10;pubOrder=null;city.pub?.setOrder(null);perf?.reset();
+    place();setTarget(null);cameraStep(0);updateShadow();renderer.render(scene,camera);broadcast();return true;
+  }
   function setMission(value){
-    pause();disposePatient();perf?.reset();
+    pause();disposePatient();pubOrder=null;city.pub?.setOrder(null);perf?.reset();
     mission=value;passengerPresent=delivered=false;collisionCount=travelDistance=0;place();patient=makePatient(value.patient);patient.root.position.set(value.pickup.x,groundHeight(value.pickup.x,value.pickup.z),value.pickup.z);patient.root.rotation.y=Math.PI/2;setTarget(value.pickup);cameraStep(0);renderer.render(scene,camera);broadcast();
   }
   function loadPatient(){
@@ -723,5 +741,15 @@ window.Drive = (() => {
     passengerPresent=false;delivered=true;setTarget(null);cameraStep(0);updateShadow();renderer.render(scene,camera);broadcast();return true;
   }
 
-  return {init,resume,pause,stop,input,resize,reset,portrait,getPerformance,setQuality,ready,setMission,setTarget,enterVehicle,requestEnter,exitVehicle,requestExit,loadPatient,unloadPatient,getInfo};
+  function previewPubView(view){
+    if(window.GCB_PUB_DRAFT!==true||!city?.pub||mission||mode!=='walk'||!['outside','inside'].includes(view))return false;
+    const q=view==='inside'?city.pub.interior:{x:city.pub.entrance.x+2.1,z:city.pub.entrance.z};
+    if(!clearAt(q.x,q.z,.32)||!clearOfCars(q.x,q.z,.29))return false;
+    pause();cancelRequests();walkRunTime=0;velocity=wheelSteer=gait=orbit=0;pitch=.16;characterHeading=-Math.PI/2;pieces.char.position.set(q.x,groundHeight(q.x,q.z),q.z);pieces.char.rotation.set(0,-characterHeading,0);pieces.char.visible=true;person.footShadow.visible=true;person.actor.setPose('standing');resetCameraRig(characterHeading);syncPose();cameraStep(0);updateShadow();renderer.render(scene,camera);broadcast();return true;
+  }
+  function orderPubFood(item){
+    if(!renderer||!pubFoodIds.has(item)||!nearPubCounter()||pubOrder?.state==='preparing')return false;
+    city.pub.setOrder(null);pubOrder={item,state:'preparing',readyAt:clock+1.5};broadcast();return true;
+  }
+  return {init,resume,pause,stop,input,resize,reset,portrait,getPerformance,setQuality,ready,setMission,clearMission,setTarget,enterVehicle,requestEnter,exitVehicle,requestExit,loadPatient,unloadPatient,getInfo,previewPubView,orderPubFood};
 })();
