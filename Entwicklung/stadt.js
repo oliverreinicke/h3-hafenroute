@@ -17,6 +17,8 @@ window.makeCity = function makeCity(T, scene) {
   const clay=new T.MeshStandardMaterial({color:0xffffff,roughness:.74,metalness:.035});
   const lampmat=new T.MeshBasicMaterial({color:0xffffff});
   const glassmat=new T.MeshPhysicalMaterial({color:0x8fa9af,metalness:.01,roughness:.11,transparent:true,opacity:.14,depthWrite:false,side:T.DoubleSide,forceSinglePass:true,clearcoat:.38,clearcoatRoughness:.12,envMapIntensity:.6});
+  // Existing skyline panes sit on solid walls: opaque blue-grey glazing keeps their depth readable.
+  const distantWindowGlazing=new T.MeshStandardMaterial({color:0xffffff,roughness:.30,metalness:.12,side:T.DoubleSide});distantWindowGlazing.name='distant_window_glazing';
   function instance(g,m,x,y,z,sx,sy,sz,c,rx=0,ry=0,rz=0){
     let byMat=batches.get(g);if(!byMat){byMat=new Map();batches.set(g,byMat);}
     let items=byMat.get(m);if(!items){items=[];byMat.set(m,items);}
@@ -87,16 +89,22 @@ window.makeCity = function makeCity(T, scene) {
     uniforms:{t:{value:0}},
     vertexShader:`varying vec3 wp;void main(){wp=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*viewMatrix*vec4(wp,1.);}`,
     fragmentShader:`uniform float t;varying vec3 wp;
-      float wave(vec2 p){return sin(p.x*2.2+p.y*.31+t*1.2+sin(p.y*.64+t*.43)*1.4)*.44+sin(p.x*.65-p.y*.27+t*.65)*.33+sin(p.x*5.4+p.y*.74-t*.44)*.23;}
       void main(){
         vec2 p=wp.xz;vec3 view=normalize(cameraPosition-wp);float dist=length(cameraPosition.xz-p);
-        float w=wave(p),f=pow(1.-clamp(view.y,0.,1.),2.);
-        vec3 c=mix(vec3(.12,.40,.48),vec3(.49,.57,.66),f);
-        c+=vec3(.06,.11,.12)*w;
-        vec3 n=normalize(vec3(w*.105+.015,1.,wave(p.yx*.83)*.096));
-        float sparkle=dot(reflect(-normalize(vec3(-110.,78.,-63.)),n),view);
-        c+=vec3(1.,.54,.19)*pow(max(0.,sparkle),128.)*.89;
-        c=mix(c,vec3(.91,.67,.69),smoothstep(70.,620.,dist)*.88);
+        float nearDetail=1.-smoothstep(42.,180.,dist);
+        float a=p.x*.73+p.y*.39+t*.67+.7*sin(p.y*.19+p.x*.11+t*.16);
+        float b=p.x*1.47-p.y*.68-t*.93+.45*sin(p.x*.17-p.y*.13-t*.12);
+        float cap=cos(p.x*5.7+p.y*2.1+t*1.24)*nearDetail;
+        vec3 n=normalize(vec3(cos(a)*.042+cos(b)*.024+cap*.012,1.,cos(a)*.023-cos(b)*.030+cap*.008));
+        float fresnel=.055+.945*pow(1.-max(0.,dot(n,view)),4.);
+        vec3 deep=mix(vec3(.045,.225,.250),vec3(.075,.285,.295),smoothstep(-190.,-102.,p.x));
+        vec3 reflectedSky=mix(vec3(.56,.69,.76),vec3(.72,.79,.82),pow(1.-view.y,3.));
+        vec3 c=mix(deep,reflectedSky,fresnel*.86);
+        c+=vec3(.012,.025,.026)*(sin(a)*.7+sin(b)*.3);
+        float glint=max(0.,dot(reflect(-normalize(vec3(-110.,78.,-63.)),n),view));
+        c+=vec3(.98,.95,.84)*pow(glint,mix(42.,94.,nearDetail))*.38;
+        float haze=1.-exp(-dist*dist*.0000053);
+        c=mix(c,vec3(.71,.77,.80),min(.88,haze));
         gl_FragColor=vec4(c,1.);
       }`
   });
@@ -171,6 +179,12 @@ window.makeCity = function makeCity(T, scene) {
     for(let n=-2;n<=2;n++)box(x-1.85,-.049,z+3+n*.09,.45,.01,.017,0x727477,.10);
   }
   // Distant towers occupy the inland horizon and the north side of the bay.
+  // A shared opposing pair keeps four glazed walls at the historical instance count.
+  const distantPanePair=new T.BufferGeometry();
+  distantPanePair.setAttribute('position',new T.Float32BufferAttribute([-.5,.5,-.5,.5,.5,-.5,-.5,-.5,-.5,.5,-.5,-.5,-.5,.5,.5,.5,.5,.5,-.5,-.5,.5,.5,-.5,.5],3));
+  distantPanePair.setAttribute('normal',new T.Float32BufferAttribute([0,0,-1,0,0,-1,0,0,-1,0,0,-1,0,0,1,0,0,1,0,0,1,0,0,1],3));
+  distantPanePair.setAttribute('uv',new T.Float32BufferAttribute([0,1,1,1,0,0,1,0,0,1,1,1,0,0,1,0],2));
+  distantPanePair.setIndex([0,1,2,2,1,3,4,6,5,6,7,5]);
   for(let i=0;i<148;i++){
     const side=i%3;
     const x=side===0?between(-130,240):side===1?between(132,240):between(-90,225);
@@ -184,10 +198,14 @@ window.makeCity = function makeCity(T, scene) {
       box(x-w/2-.08,y,z,.13,.13,d*.84,0xa7b1ae);
       if(i%4===0)box(x,y,z-d/2-.08,w*.85,.13,.13,0xabb7ba);
     }
-    // Economical background LOD: individual panes rather than blank tower slabs.
+    // Economical background LOD: all four walls have panes, including the city-facing sides.
     for(let y=3;y<h-1.8;y+=3.35){
-      for(let col=-w/2+1.2;col<w/2-.6;col+=2.1)box(x+col,y,z-d/2-.025,.83,1.44,.035,0x596f7a,0,glassmat);
-      for(let col=-d/2+1.2;col<d/2-.6;col+=2.1)box(x-w/2-.025,y,z+col,.035,1.44,.83,0x63767b,0,glassmat);
+      for(let col=-w/2+1.2;col<w/2-.6;col+=2.1){
+        instance(distantPanePair,distantWindowGlazing,x+col,y,z,.83,1.44,d+.05,0x596f7a);
+      }
+      for(let col=-d/2+1.2;col<d/2-.6;col+=2.1){
+        instance(distantPanePair,distantWindowGlazing,x,y,z+col,.83,1.44,w+.05,0x63767b,0,PI/2,0);
+      }
     }
   }
   const facePalettes=[
@@ -617,16 +635,165 @@ window.makeCity = function makeCity(T, scene) {
       cyl(x,-.35,z+q*1.5,.37,2.85,.37,0x79665c);cyl(x,1.1,z+q*1.5,.42,.1,.42,0xdfae81);
     }
   }
-  function sailboat(x,z,size,a,accent){
-    const group=new T.Group();group.position.set(x,-.93,z);group.rotation.y=a;group.scale.setScalar(size);root.add(group);
-    const hull=new T.Mesh(new T.SphereGeometry(1,12,7),new T.MeshStandardMaterial({color:0xedddc9,roughness:.48}));hull.scale.set(1.08,.51,3.05);group.add(hull);
-    const deck=new T.Mesh(new T.BoxGeometry(1.45,.29,3.2),new T.MeshStandardMaterial({color:0x946c53}));deck.position.y=.29;group.add(deck);
-    const mast=new T.Mesh(new T.CylinderGeometry(.046,.065,6.5,6),clay);mast.position.y=3.49;group.add(mast);
-    const sails=new T.BufferGeometry();sails.setAttribute('position',new T.Float32BufferAttribute([0,.91,-.14,0,6.61,-.14,.18,1.32,-2.3, 0,.92,.14,0,5.88,.14,-.16,.96,1.79],3));sails.computeVertexNormals();
-    const cloth=new T.Mesh(sails,new T.MeshStandardMaterial({color:accent,side:T.DoubleSide}));group.add(cloth);
-    const ph=rand()*TAU;dynamic.push(t=>{group.position.y=-.92+.09*Math.sin(t*.6+ph);group.rotation.z=.025*Math.sin(t*.49+ph);});
+  // Original, metre-scaled leisure boats. Their closed hulls, decks and fittings
+  // are merged by material; only small fittings disappear beyond shore-view distance.
+  // Keep the three historical random draws: later container/bird/walker data stay identical.
+  const boatPhases=[rand()*TAU,rand()*TAU,rand()*TAU];
+  const boatUnitBox=new T.BoxGeometry(1,1,1),boatUnitCylinder=new T.CylinderGeometry(1,1,1,8);
+  const teakTexture=canvasTexture(256,512,(c,w,h)=>{
+    c.fillStyle='#ae8a5c';c.fillRect(0,0,w,h);
+    for(let i=0;i<10;i++){
+      const x=i*w/10;c.fillStyle=i%3===0?'#b79568':i%3===1?'#a78559':'#bc9b6c';c.fillRect(x+1,0,w/10-2,h);
+      c.fillStyle='#645741';c.fillRect(x,0,1.3,h);
+      for(let j=0;j<9;j++){c.strokeStyle='rgba(78,59,32,.10)';c.lineWidth=.6;c.beginPath();c.moveTo(x+3+j*2,0);c.bezierCurveTo(x+1+j*2,h*.27,x+6+j*2,h*.67,x+3+j*2,h);c.stroke();}
+    }
+  },true);teakTexture.repeat.set(1,2);
+  const boatShadowTexture=canvasTexture(64,128,(c,w,h)=>{
+    c.save();c.translate(w/2,h/2);c.scale(w/2,h/2);
+    const g=c.createRadialGradient(0,0,0,0,0,1);g.addColorStop(0,'rgba(5,23,25,.25)');g.addColorStop(.55,'rgba(5,23,25,.11)');g.addColorStop(.98,'rgba(5,23,25,0)');g.addColorStop(1,'rgba(5,23,25,0)');c.fillStyle=g;c.fillRect(-1,-1,2,2);c.restore();
+  });
+  const boatMats={
+    body:new T.MeshPhysicalMaterial({color:0xffffff,vertexColors:true,metalness:.055,roughness:.31,clearcoat:.65,clearcoatRoughness:.22,envMapIntensity:.72}),
+    teak:new T.MeshStandardMaterial({color:0xffffff,vertexColors:true,map:teakTexture,roughness:.83,metalness:0}),
+    steel:new T.MeshStandardMaterial({color:0xffffff,vertexColors:true,metalness:.85,roughness:.26,envMapIntensity:.78}),
+    glass:new T.MeshPhysicalMaterial({color:0x52717b,vertexColors:true,metalness:.14,roughness:.13,transparent:true,opacity:.78,depthWrite:false,side:T.DoubleSide,forceSinglePass:true,clearcoat:.75,clearcoatRoughness:.10,envMapIntensity:.9}),
+    fabric:new T.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:.94,metalness:0}),
+    rubber:new T.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:.88,metalness:.01}),
+    rope:new T.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:1,metalness:0}),
+    orange:new T.MeshStandardMaterial({color:0xf18135,vertexColors:true,roughness:.65,metalness:.01})
+  };
+  const boatShadowMat=new T.MeshBasicMaterial({map:boatShadowTexture,transparent:true,depthWrite:false,toneMapped:false,opacity:.45});
+  const boatMatrix=new T.Matrix4(),boatQuaternion=new T.Quaternion(),boatEuler=new T.Euler(),boatP=new T.Vector3(),boatS=new T.Vector3(),boatColour=new T.Color();
+  function boatGeo(bucket,key,g,x=0,y=0,z=0,sx=1,sy=1,sz=1,rx=0,ry=0,rz=0,col=0xffffff){
+    boatP.set(x,y,z);boatS.set(sx,sy,sz);boatEuler.set(rx,ry,rz);boatQuaternion.setFromEuler(boatEuler);boatMatrix.compose(boatP,boatQuaternion,boatS);g.applyMatrix4(boatMatrix);
+    if(!g.attributes.color){const colors=new Float32Array(g.attributes.position.count*3);boatColour.set(col);for(let i=0;i<colors.length;i+=3){colors[i]=boatColour.r;colors[i+1]=boatColour.g;colors[i+2]=boatColour.b;}g.setAttribute('color',new T.BufferAttribute(colors,3));}
+    if(!bucket.has(key))bucket.set(key,[]);bucket.get(key).push(g);
   }
-  sailboat(-121,-45,1.13,.54,0xffdbc2);sailboat(-129,35,1.45,-.24,0xefb790);sailboat(-148,-5,1.9,1.1,0xf1d8bd);
+  function boatBox(b,k,x,y,z,w,h,d,col=0xffffff,rx=0,ry=0,rz=0){boatGeo(b,k,boatUnitBox.clone(),x,y,z,w,h,d,rx,ry,rz,col);}
+  function boatRod(b,k,a,bp,r,col=0xffffff){
+    const v=new T.Vector3().subVectors(bp,a),mid=new T.Vector3().addVectors(a,bp).multiplyScalar(.5),q=new T.Quaternion().setFromUnitVectors(new T.Vector3(0,1,0),v.clone().normalize());
+    const g=boatUnitCylinder.clone();g.scale(r,v.length(),r);g.applyQuaternion(q);g.translate(mid.x,mid.y,mid.z);boatGeo(b,k,g,0,0,0,1,1,1,0,0,0,col);
+  }
+  function boatTube(b,k,points,r,col=0xffffff,segments=18){boatGeo(b,k,new T.TubeGeometry(new T.CatmullRomCurve3(points.map(p=>new T.Vector3(...p))),segments,r,5,false),0,0,0,1,1,1,0,0,0,col);}
+  function boatFace(b,k,points,col=0xffffff){
+    const positions=[],uv=[];for(let i=1;i<points.length-1;i++)for(const j of[0,i,i+1]){positions.push(...points[j]);uv.push(points[j][0],points[j][2]);}
+    const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.computeVertexNormals();boatGeo(b,k,g,0,0,0,1,1,1,0,0,0,col);
+  }
+  function mergeBoatParts(parts){
+    const gs=parts.map(g=>{if(!g.index)return g;const n=g.toNonIndexed();g.dispose();return n;}),count=gs.reduce((n,g)=>n+g.attributes.position.count,0),out=new T.BufferGeometry();
+    for(const [key,size]of[['position',3],['normal',3],['uv',2],['color',3]]){
+      const values=new Float32Array(count*size);let at=0;for(const g of gs){const a=g.attributes[key];if(a)values.set(a.array,at);at+=g.attributes.position.count*size;}out.setAttribute(key,new T.BufferAttribute(values,size));
+    }
+    for(const g of gs)g.dispose();out.computeBoundingSphere();out.computeBoundingBox();return out;
+  }
+  function boatBatches(bucket,group,detail){
+    for(const [key,parts]of bucket){const mesh=new T.Mesh(mergeBoatParts(parts),boatMats[key]);mesh.name=group.name+'_'+key;mesh.userData.harborBoatPart=key;mesh.userData.detail=detail;mesh.castShadow=!detail&&key==='body';mesh.receiveShadow=true;group.add(mesh);}
+  }
+  function boatHull(base,L,B,F,D,accent){
+    const zs=[-.5,-.46,-.39,-.27,-.1,.1,.28,.43,.5],ws=[.015,.28,.65,.92,1,1,.94,.82,.78],tops=[1.12,1.05,1,.96,.94,.93,.94,.95,.96],depths=[.18,.55,.82,1,1,.95,.80,.65,.60],N=22,pos=[],uv=[],indices=[],col=[];
+    const navy=new T.Color(accent),white=new T.Color(0xf1f1e9),bottom=new T.Color(0x24343a);
+    for(let i=0;i<zs.length;i++)for(let j=0;j<=N;j++){
+      const a=j/N*PI,w=ws[i]*B/2,top=tops[i]*F,y=top-(top+depths[i]*D)*Math.pow(Math.sin(a),.78);pos.push(Math.cos(a)*w,y,zs[i]*L);uv.push(j/N,i/(zs.length-1));
+      const c=y<.02?bottom:y<.17?navy:white;col.push(c.r,c.g,c.b);
+      if(i<zs.length-1&&j<N){const a=i*(N+1)+j,b=a+N+1;indices.push(a,b,a+1,a+1,b,b+1);}
+    }
+    const hull=new T.BufferGeometry();hull.setAttribute('position',new T.Float32BufferAttribute(pos,3));hull.setAttribute('uv',new T.Float32BufferAttribute(uv,2));hull.setAttribute('color',new T.Float32BufferAttribute(col,3));hull.setIndex(indices);hull.computeVertexNormals();boatGeo(base,'body',hull);
+    for(let i=0;i<zs.length-1;i++){
+      const z1=zs[i]*L,z2=zs[i+1]*L,w1=ws[i]*B/2,w2=ws[i+1]*B/2,y1=tops[i]*F,y2=tops[i+1]*F;
+      boatFace(base,'body',[[w1,y1,z1],[-w1,y1,z1],[-w2,y2,z2],[w2,y2,z2]],0xe6e5dc);
+    }
+    for(const i of[0,zs.length-1]){const points=[];for(let j=0;j<=N;j++)points.push([pos[(i*(N+1)+j)*3],pos[(i*(N+1)+j)*3+1],zs[i]*L]);if(i===zs.length-1)points.reverse();boatFace(base,'body',points,0xe4e5df);}
+    return zs.map((z,i)=>({z:z*L,w:ws[i]*B/2,y:tops[i]*F}));
+  }
+  function cabin(base,x,y,z,w,h,d){
+    // Tapered coachroof: raked windscreen and real side panes instead of a box cabin.
+    const bottom=[[-w/2,y,z-d/2],[w/2,y,z-d/2],[w/2,y,z+d/2],[-w/2,y,z+d/2]],top=[[-w*.39,y+h,z-d*.27],[w*.39,y+h,z-d*.27],[w*.39,y+h,z+d*.34],[-w*.39,y+h,z+d*.34]];
+    boatFace(base,'body',[top[0],top[3],top[2],top[1]],0xeeeae1);
+    for(let i=0;i<4;i++){const j=(i+1)%4;boatFace(base,'body',[bottom[j],bottom[i],top[i],top[j]],0xf0f0e8);}
+    const gutter=.018;
+    for(const side of[-1,1]){
+      const bx=side*(w*(.5-.11*.24)+gutter),tx=side*(w*(.5-.11*.82)+gutter);
+      for(let i=0;i<2;i++){const za=z-d*.30+i*d*.34,zb=za+d*.24;boatFace(base,'glass',[[bx,y+h*.24,za],[bx,y+h*.24,zb],[tx,y+h*.82,zb-d*.04],[tx,y+h*.82,za+d*.07]]);}
+    }
+    boatFace(base,'glass',[[-w*.39,y+h*.27,z-d*(.5-.23*.27)-gutter],[w*.39,y+h*.27,z-d*(.5-.23*.27)-gutter],[w*.32,y+h*.83,z-d*(.5-.23*.83)-gutter],[-w*.32,y+h*.83,z-d*(.5-.23*.83)-gutter]]);
+    for(const side of[-1,1]){
+      boatRod(base,'steel',new T.Vector3(side*w*.31,y+h+.04,z-d*.1),new T.Vector3(side*w*.31,y+h+.04,z+d*.25),.015,0xaeb6b6);
+      for(const q of[-.1,.25])boatRod(base,'steel',new T.Vector3(side*w*.31,y+h,z+d*q),new T.Vector3(side*w*.31,y+h+.04,z+d*q),.013,0xaeb6b6);
+    }
+  }
+  function boatFittings(details,rings,L,B,F,kind){
+    for(const side of[-1,1]){
+      const rail=rings.slice(1).map(p=>[side*p.w,p.y+.54,p.z]);boatTube(details,'steel',rail,.016,0xaeb6b4,24);
+      for(let i=2;i<rings.length;i+=2){const p=rings[i];boatRod(details,'steel',new T.Vector3(side*p.w,p.y+.02,p.z),new T.Vector3(side*p.w,p.y+.54,p.z),.017,0xaeb6b4);}
+      boatTube(details,'body',rings.slice(1).map(p=>[side*(p.w+.012),p.y-.065,p.z]),.028,0x3a4850,24);
+      for(const z of[-L*.19,L*.10,L*.34]){
+        const x=side*(B*.47),y=F*.48;boatGeo(details,'rubber',new T.CapsuleGeometry(.095,.37,3,8),x,y,z,1,1,1,0,0,side*.11,0xd8d5c6);
+        boatRod(details,'rope',new T.Vector3(x,y+.29,z),new T.Vector3(x,F+.44,z),.009,0xbaa98a);
+      }
+      for(const z of[-L*.33,L*.35]){const x=side*B*.33;boatBox(details,'steel',x,F+.045,z,.16,.04,.065,0x9ca6a6);boatRod(details,'steel',new T.Vector3(x-.08,F+.1,z),new T.Vector3(x+.08,F+.1,z),.018,0xb6bcbc);}
+    }
+    boatGeo(details,'orange',new T.TorusGeometry(.23,.061,6,24),B*.33,F+.35,L*.43,1,1,1,0,PI/2,0);
+    for(let i=0;i<4;i++){const a=i*PI/2;boatBox(details,'fabric',B*.33+.022,F+.35+Math.sin(a)*.23,L*.43+Math.cos(a)*.23,.13,.08,.08,0xeee9d8,0,0,a);}
+    boatBox(details,'teak',0,F+.02,-L*.31,B*.32,.025,L*.16);
+    boatBox(details,'body',0,F+.075,-L*.31,B*.35,.055,L*.18,0xd5d6ce);
+    boatBox(details,'rubber',0,F+.108,-L*.31,B*.29,.012,L*.13,0x364b52);
+    if(kind!=='sail'){
+      const x=-B*.20,z=L*.14,y=F+.54;
+      boatGeo(details,'rubber',new T.TorusGeometry(.12,.015,5,16),x,y,z,1,1,1,-.5,0,0,0x303a3b);
+      boatRod(details,'steel',new T.Vector3(x,y-.22,z+.08),new T.Vector3(x,y,z),.018,0x7e898a);
+      boatBox(details,'rubber',x,y-.17,z-.13,.32,.16,.12,0x29393d,.1);
+      for(let n=0;n<3;n++)boatGeo(details,'steel',new T.CylinderGeometry(.029,.029,.012,10),x-.09+n*.09,y-.13,z-.063,1,1,1,PI/2,0,0,0xc7ccca);
+    }
+    boatTube(details,'rope',[[B*.30,F+.15,L*.35],[B*.22,F+.17,L*.31],[B*.27,F+.16,L*.25],[B*.35,F+.16,L*.29],[B*.30,F+.15,L*.35]],.012,0xc7b899,20);
+  }
+  const boatContactParts=[],mooringRecords=[],mooringArray=new Float32Array(4*12*2*3),mooringGeometry=new T.BufferGeometry();mooringGeometry.setAttribute('position',new T.BufferAttribute(mooringArray,3));
+  const moorings=new T.LineSegments(mooringGeometry,new T.LineBasicMaterial({color:0xb6a486}));moorings.name='harbor_mooring_lines';moorings.frustumCulled=false;root.add(moorings);
+  function leisureBoat(kind,x,z,size,a,accent,phase){
+    const boat=new T.Group();boat.name='harbor_boat_'+kind;boat.userData.harborBoat=kind;boat.position.set(x,-1.03,z);boat.rotation.y=a;boat.scale.setScalar(size);root.add(boat);
+    const high=new T.Group();high.name=boat.name+'_fittings';boat.add(high);
+    const base=new Map(),details=new Map();
+    const L=kind==='sail'?7.2:kind==='cabin'?6.25:3.9,B=kind==='sail'?2.55:kind==='cabin'?2.05:1.35,F=kind==='sail'?.72:kind==='cabin'?.62:.42,D=kind==='sail'?.80:kind==='cabin'?.56:.35;
+    const rings=boatHull(base,L,B,F,D,accent);boat.userData.dimensions={length:L*size,beam:B*size,draft:D*size};boat.userData.hullSurfaceVertices=base.get('body').reduce((n,g)=>n+(g.index?.count??g.attributes.position.count),0);
+    boatBox(base,'teak',0,F+.027,L*.11,B*.73,.025,L*.61);
+    if(kind==='sail'){
+      cabin(base,0,F+.025,-.35,B*.66,.62,L*.39);
+      boatBox(base,'fabric',-B*.29,F+.27,L*.30,B*.18,.12,L*.26,0xd8d4c6);boatBox(base,'fabric',B*.29,F+.27,L*.30,B*.18,.12,L*.26,0xd8d4c6);
+      boatRod(base,'steel',new T.Vector3(0,F,-L*.12),new T.Vector3(0,F+8.7,-L*.12),.042,0xc1c6c5);
+      boatRod(base,'steel',new T.Vector3(0,F+1.06,-L*.12),new T.Vector3(0,F+1.04,L*.25),.046,0xa8b1b2);
+      boatGeo(base,'fabric',new T.CapsuleGeometry(.13,L*.37,3,8),0,F+1.13,L*.065,1,1,1,PI/2,0,0,0xe0ddcf);
+      boatRod(base,'fabric',new T.Vector3(0,F+.09,-L*.45),new T.Vector3(0,F+8.6,-L*.12),.059,0xe3dfcf);
+      for(const side of[-1,1]){boatRod(details,'rope',new T.Vector3(side*B*.41,F+.06,.12),new T.Vector3(0,F+8.1,-L*.12),.006,0x8d9290);boatRod(details,'steel',new T.Vector3(0,F+4.8,-L*.12),new T.Vector3(side*B*.44,F+4.8,-L*.12),.018,0xb2babb);}
+      boatRod(details,'rope',new T.Vector3(0,F+.06,L*.43),new T.Vector3(0,F+8.6,-L*.12),.007,0x92918a);
+      boatBox(details,'rubber',0,F+.22,L*.40,.05,.34,.05,0x343d3d);boatRod(details,'teak',new T.Vector3(0,F+.38,L*.40),new T.Vector3(0,F+.45,L*.20),.025);
+    }else if(kind==='cabin'){
+      cabin(base,0,F+.025,-.48,B*.82,1.05,L*.46);
+      boatBox(base,'body',0,F+.18,L*.28,B*.85,.30,L*.26,0xe9e6dc);
+      boatBox(base,'fabric',0,F+.38,L*.31,B*.72,.13,L*.17,0xc9cbbf);boatBox(base,'fabric',0,F+.63,L*.40,B*.72,.39,.11,0xc9cbbf);
+      boatRod(base,'steel',new T.Vector3(-B*.35,F+1.15,.35),new T.Vector3(-B*.35,F+.4,L*.4),.028,0xafb7b7);boatRod(base,'steel',new T.Vector3(B*.35,F+1.15,.35),new T.Vector3(B*.35,F+.4,L*.4),.028,0xafb7b7);
+      boatBox(base,'fabric',0,F+1.15,L*.23,B*.77,.055,L*.40,0x253e49);
+      boatRod(details,'steel',new T.Vector3(0,F+1.12,-.8),new T.Vector3(0,F+1.84,-.8),.015,0xb8c1bf);
+    }else{
+      boatBox(base,'body',0,F+.06,L*.13,B*.80,.14,L*.52,0xe8e8df);
+      for(const x of[-B*.24,B*.24]){boatBox(base,'fabric',x,F+.21,L*.10,B*.30,.12,L*.25,0xe0d5b9);boatBox(base,'fabric',x,F+.39,L*.23,B*.30,.30,.065,0xe0d5b9);}
+      boatBox(base,'fabric',0,F+.20,L*.39,B*.72,.12,L*.13,0xded3b7);
+      boatFace(base,'glass',[[-B*.43,F+.20,-L*.09],[B*.43,F+.20,-L*.09],[B*.37,F+.69,L*.015],[-B*.37,F+.69,L*.015]]);
+      for(const side of[-1,1])boatRod(base,'steel',new T.Vector3(side*B*.43,F+.18,-L*.09),new T.Vector3(side*B*.37,F+.70,L*.015),.018,0x9ca8aa);
+      boatBox(base,'teak',0,F+.07,-L*.27,B*.60,.035,L*.25);
+      boatBox(details,'rubber',0,F*.42,L*.54,.27,.49,.27,0x30383a,-.12);boatBox(details,'body',0,F*.78,L*.56,.29,.17,.31,0xd5d7cf);
+    }
+    boatFittings(details,rings,L,B,F,kind);
+    // Hull trim and teak stay in the existing large batches; small rail/fender fittings use LOD.
+    for(const key of['body','teak'])if(details.has(key)){base.get(key).push(...details.get(key));details.delete(key);}
+    boatBatches(base,boat,false);boatBatches(details,high,true);
+    const contact=new T.PlaneGeometry(B*1.9*size,L*1.25*size);contact.rotateX(-PI/2);contact.rotateY(a);contact.translate(x,-1.017,z);boatContactParts.push(contact);
+    if(kind!=='open')for(const side of[-1,1])mooringRecords.push({boat,x,z,size,a,phase,localX:side*B*.33,localY:F+.11,localZ:kind==='sail'?-L*.33:L*.35,anchorX:kind==='sail'?-118.5:-119,anchorY:.35,anchorZ:kind==='sail'?-51+side*1.5:38+side*1.5});
+    dynamic.push(t=>{boat.position.y=-1.03+.035*Math.sin(t*.61+phase);boat.rotation.z=.010*Math.sin(t*.47+phase);boat.rotation.x=.005*Math.cos(t*.39+phase);const dx=observer.x-x,dz=observer.z-z;high.visible=dx*dx+dz*dz<160*160;});
+  }
+  leisureBoat('sail',-121,-45,1.13,.54,0x244f65,boatPhases[0]);leisureBoat('cabin',-129,35,1.45,-.24,0x355363,boatPhases[1]);leisureBoat('open',-148,-5,1.9,1.1,0x3c5b61,boatPhases[2]);
+  const boatContacts=new T.Mesh(mergeBoatParts(boatContactParts),boatShadowMat);boatContacts.name='harbor_boat_water_contacts';boatContacts.userData.harborWaterContacts=true;boatContacts.renderOrder=2;root.add(boatContacts);
+  boatUnitBox.dispose();boatUnitCylinder.dispose();
+  const mooringPoint=new T.Vector3();
+  dynamic.push(()=>{let at=0;for(const m of mooringRecords){m.boat.updateMatrixWorld(true);mooringPoint.set(m.localX,m.localY,m.localZ).applyMatrix4(m.boat.matrixWorld);for(let i=0;i<12;i++)for(let j=i;j<=i+1;j++){const f=j/12;mooringArray[at++]=mooringPoint.x+(m.anchorX-mooringPoint.x)*f;mooringArray[at++]=mooringPoint.y+(m.anchorY-mooringPoint.y)*f-.24*Math.sin(PI*f);mooringArray[at++]=mooringPoint.z+(m.anchorZ-mooringPoint.z)*f;}}mooringGeometry.attributes.position.needsUpdate=true;});
   // Port across the water. Latticework and containers give the bay a recognisable silhouette.
   box(-159,-.47,-133,97,.82,43,0xab9095);
   for(let i=0;i<38;i++){

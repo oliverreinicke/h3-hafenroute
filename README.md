@@ -4,7 +4,7 @@
 
 Kostenlos und ohne Anmeldung. Die Spielseite wird über GitHub Pages bereitgestellt.
 
-V13 ist ein 3D-Lernspiel mit fünf fiktiven Transportmissionen für FaGe H3. Bedarf und Mitgaben klären, ein passendes Transportangebot prüfen, die Person abholen und persönlich übergeben. Alle Personen, Orte, Angebote und Kennzeichen sind fiktiv. Fahrten und Teamhandlungen sind Spielabstraktionen.
+V14 ist ein 3D-Lernspiel mit fünf fiktiven Transportmissionen für FaGe H3. Bedarf und Mitgaben klären, ein passendes Transportangebot prüfen, die Person abholen und persönlich übergeben. Alle Personen, Orte, Angebote und Kennzeichen sind fiktiv. Fahrten und Teamhandlungen sind Spielabstraktionen.
 
 ## Starten
 
@@ -30,6 +30,10 @@ Die Stadt enthält insgesamt 25 Autos, zwölf E-Scooter und 26 Passanten. Die f�
 
 Acht Sprachclips von Elena und Selma wurden in V13 mit neuer Regie aufgenommen. Die übrigen 59 Sprachclips bleiben erhalten; es handelt sich um synthetische Erwachsenenstimmen. Musik, Sprache und Fahrgeräusche sind getrennt regelbar. Bei nicht abspielbaren Clips steht eine Browserstimme als Rückfall bereit. Alle Audiodateien liegen lokal vor. Der Introtext einer Person wird pro Missionszustand automatisch einmal gesprochen und lässt sich bewusst wiederholen.
 
+## Hafengrafik
+
+Drei unterschiedliche Freizeitboote besitzen ausgeformte Rümpfe, Decks, Verglasung, Reling und Festmacher. Segelyacht, Kabinenboot und offenes Motorboot bewegen sich dezent im blaugrünen Wasser. Details sind materialweise zusammengefasst und werden nach Entfernung ausgeblendet. Die Tageslichtreflexionen bleiben ohne zusätzliche Effekte pro Bild.
+
 ## Bauen und prüfen
 
 Python 3 und für die Tests Node.js (empfohlen ab Version 20) genügen. Kein Paketmanager ist erforderlich:
@@ -39,6 +43,8 @@ python3 build.py
 node tests/rules.test.mjs
 node tests/autorun-v13.test.mjs
 node tests/mobility-v13.test.mjs
+node tests/boats-v14.test.mjs
+node tests/lighting-v14.test.mjs
 ```
 
 Der Build erzeugt `dist/index.html` und zusätzlich die grosse optionale Einzeldatei `Hafenroute_H3.html` im Projektordner. Diese Einzeldatei ist nicht Teil des Repository-Pakets. Weitere portable Prüfungen liegen in `tests/`, der Audiotest in `Entwicklung/audio.test.mjs`. Tests mit Three.js-CPU-Mathematik ersetzen keine Sicht-, Hör- oder GPU-Prüfung auf jedem Endgerät. Die Echtzeitgrafik und Bildrate sind geräte- und szenenabhängig.

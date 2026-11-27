@@ -1,0 +1,9 @@
+{
+  "description": "Measured harbour baseline before the V14 visual revision; no private source paths or executable code.",
+  "sourceCommit": "caf6ebea796a5b654b05e264df7a8565d979796d",
+  "boatDrawObjects": 12,
+  "boatTriangles": 546,
+  "boatPositionsXZ": [[-121, -45], [-129, 35], [-148, -5]],
+  "maximumAdditionalDrawObjectsExclusive": 30,
+  "maximumAdditionalTrianglesExclusive": 20000
+}

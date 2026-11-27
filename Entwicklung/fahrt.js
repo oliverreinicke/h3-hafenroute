@@ -329,13 +329,13 @@ window.Drive = (() => {
     renderer.shadowMap.autoUpdate=false;
     renderer.shadowMap.needsUpdate=true;
     scene=new T.Scene();
-    // Water, shop lights and the last daylight form the reflection on the paint and glass.
+    // Neutral daylight fallback while the actual waterfront reflections are being prepared.
     const envCanvas=document.createElement("canvas");envCanvas.width=512;envCanvas.height=256;
     const env=envCanvas.getContext("2d"), sky=env.createLinearGradient(0,0,0,256);
-    [[0,"#52699a"],[.32,"#ba98bb"],[.49,"#ffcb9d"],[.53,"#978594"],[.75,"#596c79"],[1,"#343e4c"]].forEach(([at,col])=>sky.addColorStop(at,col));
+    [[0,"#6491b7"],[.32,"#a9c3d4"],[.49,"#d9e0df"],[.53,"#a2aaac"],[.75,"#687679"],[1,"#394449"]].forEach(([at,col])=>sky.addColorStop(at,col));
     env.fillStyle=sky;env.fillRect(0,0,512,256);
-    for(let i=0;i<60;i++){const x=i*8.6,h=4+13*(.5+.5*Math.sin(i*8.17));env.fillStyle=i%3===0?"#617484":"#887d90";env.fillRect(x,133-h,7,h);env.fillStyle=i%4===0?"#ffe0ad":"#a6dede";env.fillRect(x+1,130-h,5,1.5)}
-    env.fillStyle="#fff1cb";env.beginPath();env.arc(114,111,10,0,Math.PI*2);env.fill();
+    for(let i=0;i<60;i++){const x=i*8.6,h=4+13*(.5+.5*Math.sin(i*8.17));env.fillStyle=i%3===0?"#64727a":"#7b8182";env.fillRect(x,133-h,7,h);env.fillStyle=i%4===0?"#d7d8c9":"#acc0c8";env.fillRect(x+1,130-h,5,1.5)}
+    env.fillStyle="#fff6dd";env.beginPath();env.arc(114,80,7,0,Math.PI*2);env.fill();
     const reflection=new T.CanvasTexture(envCanvas);reflection.colorSpace=T.SRGBColorSpace;reflection.mapping=T.EquirectangularReflectionMapping;
     scene.environment=reflection;scene.environmentIntensity=.77;
     camera=new T.PerspectiveCamera(54,1,.11,440);
@@ -676,8 +676,11 @@ window.Drive = (() => {
     if(!renderer)return;const current=renderer;const tasks=[person?.actor?.promise,patient?.actor?.promise,patient?.teamActor?.promise,...(city?.pedestrians||[]).map(n=>n.actor?.promise),...fleet.map(v=>v.ready||v.root.userData.readyPromise)].filter(Boolean);await Promise.allSettled(tasks);await window.cityTextureReady?.();if(renderer!==current)return;
     updateShadow();
     if(probeTarget&&!environmentReady){
-      const dynamic=[person?.root,patient?.root,patient?.team,traffic?.root,...fleet.map(v=>v.root),...(city?.pedestrians||[]).map(n=>n.anchor)].filter(Boolean),visible=dynamic.map(o=>o.visible);dynamic.forEach(o=>o.visible=false);
-      const previous=scene.environment,capture=new T.CubeCamera(.4,420,probeTarget);capture.position.set(-77,3.1,8);capture.update(renderer,scene);dynamic.forEach((o,i)=>o.visible=visible[i]);scene.environment=probeTarget.texture;scene.environmentIntensity=.83;if(previous&&previous!==probeTarget.texture)previous.dispose();environmentReady=true;
+      // A gameplay target is not part of the waterfront and must not tint paint or glass green.
+      const dynamic=[marker?.root,person?.root,patient?.root,patient?.team,traffic?.root,...fleet.map(v=>v.root),...(city?.pedestrians||[]).map(n=>n.anchor)].filter(Boolean),visible=dynamic.map(o=>o.visible);dynamic.forEach(o=>o.visible=false);
+      const previous=scene.environment,capture=new T.CubeCamera(.4,420,probeTarget);capture.position.set(-77,3.1,8);
+      try{capture.update(renderer,scene);}finally{dynamic.forEach((o,i)=>o.visible=visible[i]);}
+      scene.environment=probeTarget.texture;scene.environmentIntensity=.83;if(previous&&previous!==probeTarget.texture)previous.dispose();environmentReady=true;
     }
     installDrawDiagnostics();if(renderer.isWebGLRenderer&&renderer.compileAsync)await renderer.compileAsync(scene,camera);renderer.render(scene,camera);perf?.reset();
   }
@@ -691,7 +694,8 @@ window.Drive = (() => {
       if(m.geometry)geometries.add(m.geometry);
       for(const mat of [m.material,m.customDepthMaterial,m.customDistanceMaterial].flat().filter(Boolean)){materials.add(mat);for(const val of Object.values(mat))if(val?.isTexture)textures.add(val);}
     });
-    if(probeTarget){probeTarget.dispose();probeTarget=null;}else if(scene?.environment)textures.add(scene.environment);
+    if(scene?.environment&&scene.environment!==probeTarget?.texture)textures.add(scene.environment);
+    if(probeTarget){probeTarget.dispose();probeTarget=null;}
     for(const item of [...geometries,...materials,...textures])item.dispose();
     scene.clear();fleet=[];onTalk=null;patient=null;mission=target=null;passengerPresent=delivered=false;onAction=report=null;renderer.dispose();renderer=null;canvas=null;city=null;shadowLight=shadowBasis=perf=null;environmentReady=false;cameraYaw=null;cameraArm=0;cameraForward=null;clock=nextShadow=0;lost=false;
   }
