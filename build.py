@@ -5,6 +5,7 @@ root=Path(__file__).resolve().parent
 src=root/'Entwicklung';dist=root/'dist'
 def read(name):
  source=(src/name).read_text()
+ source=re.sub(r'reference and provenance are recorded in [^\n]*?\.json\.', 'reference profile is recorded in tests/fixtures/d4-control-profile.json.',source)
  if '--qa' not in sys.argv:source=re.sub(r'/\*QA-BEGIN\*/[\s\S]*?/\*QA-END\*/','',source)
  return source
 def bindings(names,importing=False):

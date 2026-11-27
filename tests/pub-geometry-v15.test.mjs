@@ -62,7 +62,9 @@ check('solid walls and real furniture block feet while low furniture does not fo
 check('batched non-actor geometry and warm lighting stay within the declared small-pub budget',()=>{
  assert(meshes.length<=40,'draw objects '+meshes.length);assert(triangles<25000,'triangles '+triangles);
  const lights=[];parent.traverse(o=>{if(o.isPointLight)lights.push(o);});
- assert(lights.length>0&&lights.length<=2);for(const light of lights){assert.equal(light.castShadow,false);assert(light.distance<=7);assert(light.color.r>light.color.b);}
+ assert.equal(lights.length,0,'pub must not add city-wide light shader variants');
+ assert(pub.root.getObjectByName('gcb_baked_light_pools')?.isMesh);
+ assert(meshes.some(m=>m.material.emissiveIntensity>0&&m.material.emissive?.r>m.material.emissive?.b));
 });
 check('the existing rigged waiter and seated guest load in the agreed poses and face the room',()=>{
  assert.equal(actors.length,2);assert.equal(actors[0].pose,'standing');assert.equal(actors[1].pose,'seated');
@@ -98,8 +100,8 @@ check('1600 scene updates retain collider identities, world coordinates and GPU 
  const now=[];parent.traverse(o=>{if(o.isMesh)now.push(o);});assert.deepEqual(new Set(now.map(o=>o.geometry)),geometries);assert.deepEqual(new Set(now.map(o=>o.material)),materials);
  assert(actors.every(a=>a.updates===1600));
 });
-check('far-away warm lights switch off, actor disposal is idempotent, and ordinary scene cleanup sees every owned resource',()=>{
- pub.update(1/60,30,{x:90,z:90});const lights=[];parent.traverse(o=>{if(o.isPointLight)lights.push(o);});assert(lights.every(l=>!l.visible));
+check('far-away pub actors are hidden, disposal is idempotent, and ordinary scene cleanup sees every owned resource',()=>{
+ pub.update(1/60,30,{x:90,z:90});assert.equal(pub.root.getObjectByName('gcb_waiter').visible,false);assert.equal(pub.root.getObjectByName('gcb_guest').visible,false);
  const before=actors.map(a=>a.updates);pub.dispose();pub.dispose();pub.update(1/60,31,{x:-94.3,z:-15});assert.deepEqual(actors.map(a=>a.updates),before);assert(actors.every(a=>a.disposed===1));assert.equal(pub.setOrder('salad'),false);
  const disposed=new Set();for(const r of[...geometries,...materials,...textures])r.addEventListener('dispose',()=>disposed.add(r));
  for(const r of[...geometries,...materials,...textures])r.dispose();assert.equal(disposed.size,geometries.size+materials.size+textures.size);
